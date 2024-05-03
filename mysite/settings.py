@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+import psycopg2
+from corsheaders.middleware import CorsMiddleware
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +28,12 @@ SECRET_KEY = 'django-insecure-x(5dx3mmj4*37yh956zl74#t=wvbuib)!87s7)lg&v!9h6sf)a
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+]
 
 # Application definition
 
@@ -81,7 +89,7 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'HappyDB',
        'USER': 'postgres',
-       'PASSWORD': 'undertaker',
+       'PASSWORD': '1601',
        'HOST': 'localhost',
        'PORT': '5432',
     }
