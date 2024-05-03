@@ -80,7 +80,7 @@ DATABASES = {
     'default': {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'HappyDB',
-       'USER': 'postgre',
+       'USER': 'postgres',
        'PASSWORD': 'undertaker',
        'HOST': 'localhost',
        'PORT': '5432',
