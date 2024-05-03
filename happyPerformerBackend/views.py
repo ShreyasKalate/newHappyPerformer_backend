@@ -1,11 +1,14 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse , JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt
 def Home(request):
-    return HttpResponse('This is the Home Page of the Happy Performer Backend!')
+    return JsonResponse({"data":"Welcome to happy backsideeee hehe"})
 
+@csrf_exempt
 def MeetTheTeam(request):
-    return HttpResponse('This is the Meet the Team Page of the Happy Performer Backend!')
+    return JsonResponse({"data":"Meet the team here!"})
 
 def Contact(request):
     return HttpResponse('This is the Contact Page of the Happy Performer Backend!')

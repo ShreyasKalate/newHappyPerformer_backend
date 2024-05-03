@@ -27,12 +27,12 @@ SECRET_KEY = 'django-insecure-x(5dx3mmj4*37yh956zl74#t=wvbuib)!87s7)lg&v!9h6sf)a
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*','http://localhost:5173']
 
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
+    'http://localhost:5173'
 ]
 
 # Application definition
@@ -89,7 +89,7 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'HappyDB',
        'USER': 'postgres',
-       'PASSWORD': '1601',
+       'PASSWORD': 'undertaker',
        'HOST': 'localhost',
        'PORT': '5432',
     }
