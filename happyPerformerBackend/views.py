@@ -27,6 +27,20 @@ def TermsAndConditions(request):
 
 @csrf_exempt
 def Login(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            print(data)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+
+        email = data['email']
+        password = data['password']
+
+        if email == 'admin' and password == 'admin':
+            return JsonResponse({'message': 'Login successful'}, status=200)
+        else:
+            return JsonResponse({'error': 'Invalid credentials'}, status=401)
     return HttpResponse('This is the Login Page of the Happy Performer Backend!')
 
 @csrf_exempt
@@ -37,7 +51,7 @@ def Register(request):
             print(data)
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON format'}, status=400)
-
+        
         name = data['companyName']
         addr = data['companyAddress']
         phone = data['companyPhone']

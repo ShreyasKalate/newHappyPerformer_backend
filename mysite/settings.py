@@ -91,7 +91,7 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'HappyDB',
        'USER': 'postgres',
-       'PASSWORD': '123456',
+       'PASSWORD': 'undertaker',
        'HOST': 'localhost',
        'PORT': '5432',
     }
