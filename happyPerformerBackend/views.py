@@ -10,11 +10,14 @@ def Home(request):
 def MeetTheTeam(request):
     return JsonResponse({"data":"Meet the team here!"})
 
+@csrf_exempt
 def Contact(request):
-    return HttpResponse('This is the Contact Page of the Happy Performer Backend!')
+    return JsonResponse({"data":"Contact Us Page reached without any issues"})
 
+
+@csrf_exempt
 def About(request):
-    return HttpResponse('This is the About Page of the Happy Performer Backend!')
+    return JsonResponse({"data":"About Us Page reached without any issues"})
 
 def Login(request):
     return HttpResponse('This is the Login Page of the Happy Performer Backend!')
