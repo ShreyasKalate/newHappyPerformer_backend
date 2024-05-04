@@ -24,3 +24,4 @@ def Login(request):
 
 def Register(request):
     return HttpResponse('This is the Register Page of the Happy Performer Backend!')
+
