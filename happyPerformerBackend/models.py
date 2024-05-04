@@ -1,24 +1,5 @@
 from django.db import models
 
-class employee(models.Model):
-    emp_name = models.CharField(max_length=30)
-    emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
-    emp_skills = models.CharField(max_length=150)
-    emp_role = models.CharField(max_length=50)
-    emp_pwd = models.CharField(max_length=15, default='changeme')
-    emp_phone = models.CharField(max_length=11)
-    emp_profile = models.CharField(max_length=100, default='profile.png')
-    d_id = models.IntegerField()
-    add_date = models.CharField(max_length=200, null=True, default=None)
-    pay_sts = models.CharField(max_length=200, null=True, default=None)
-    Status = models.CharField(max_length=8, default='Active')
-    likes = models.CharField(max_length=10000, default='0')
-    class Meta:
-        indexes = [
-            models.Index(fields=['d_id'], name='employee_d_id_idx'),
-        ]
-    d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id')
-
 class company(models.Model):
     c_id = models.BigAutoField(primary_key=True)
     c_name = models.CharField(max_length=30)
@@ -36,14 +17,32 @@ class company(models.Model):
 class department(models.Model):
     d_id = models.BigAutoField(primary_key=True)
     d_name = models.CharField(max_length=20)
-    c_id = models.IntegerField()
     add_date = models.CharField(max_length=200, null=True, default=None)
-    c_id = models.ForeignKey('company', on_delete=models.CASCADE, db_column='c_id')
+    c_id = models.ForeignKey(company, on_delete=models.CASCADE, db_column='c_id')
     class Meta:
         indexes = [
-            models.Index(fields=['d_name', 'c_id'], name='department_d_name_c_id_idx'),
-            models.Index(fields=['c_id'], name='department_c_id_idx'),
+            models.Index(fields=['d_name', 'c_id'], name='department_d_name_c_id'),
+            models.Index(fields=['c_id'], name='department_c_id'),
         ]
+
+class employee(models.Model):
+    emp_name = models.CharField(max_length=30)
+    emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
+    emp_skills = models.CharField(max_length=150)
+    emp_role = models.CharField(max_length=50)
+    emp_pwd = models.CharField(max_length=15, default='changeme')
+    emp_phone = models.CharField(max_length=11)
+    emp_profile = models.CharField(max_length=100, default='profile.png')
+    d_id = models.IntegerField()
+    add_date = models.CharField(max_length=200, null=True, default=None)
+    pay_sts = models.CharField(max_length=200, null=True, default=None)
+    Status = models.CharField(max_length=8, default='Active')
+    likes = models.CharField(max_length=10000, default='0')
+    class Meta:
+        indexes = [
+            models.Index(fields=['d_id'], name='employee_d_id'),
+        ]
+    d_id = models.ForeignKey(department, on_delete=models.CASCADE, db_column='d_id')
 
 class Adhaar(models.Model):
     A_Id = models.BigAutoField(primary_key=True)
