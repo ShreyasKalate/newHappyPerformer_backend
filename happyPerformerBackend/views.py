@@ -14,10 +14,13 @@ def MeetTheTeam(request):
 def Contact(request):
     return JsonResponse({"data":"Contact Us Page reached without any issues"})
 
-
 @csrf_exempt
 def About(request):
     return JsonResponse({"data":"About Us Page reached without any issues"})
+
+@csrf_exempt
+def TermsAndConditions(request):
+    return JsonResponse({"data":"Terms and Conditions Page reached without any issues"})
 
 def Login(request):
     return HttpResponse('This is the Login Page of the Happy Performer Backend!')
