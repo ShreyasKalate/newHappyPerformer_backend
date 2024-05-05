@@ -92,7 +92,11 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'postgres',
        'USER': 'postgres',
+<<<<<<< Updated upstream
        'PASSWORD': '1601',
+=======
+       'PASSWORD': '634912',
+>>>>>>> Stashed changes
        'HOST': 'localhost',
        'PORT': '5432',
     }
