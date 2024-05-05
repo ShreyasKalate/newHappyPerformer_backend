@@ -2,8 +2,9 @@ import json
 from django.shortcuts import render
 from django.http import HttpResponse , JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import company, department, employee
-from .utils import create_company_with_departments_and_employees
+from .models import Company, Department, Employee
+from django.contrib.auth import authenticate
+
 
 @csrf_exempt
 def Home(request):
@@ -28,43 +29,50 @@ def TermsAndConditions(request):
 @csrf_exempt
 def Login(request):
     if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            print(data)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+        data = request.POST
 
-        email = data['email']
-        password = data['password']
+        email = data.get('email')
+        password = data.get('password')
 
-        if email == 'admin' and password == 'admin':
+        User = authenticate(emp_emailid=email, emp_pwd=password)
+        
+        if User is not None:
             return JsonResponse({'message': 'Login successful'}, status=200)
         else:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
-    return HttpResponse('This is the Login Page of the Happy Performer Backend!')
+
+    return JsonResponse({'error': 'Invalid credentials'}, status=401)
 
 @csrf_exempt
 def Register(request):
     if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            print(data)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+        data = request.POST
+        print(data)
         
-        name = data['companyName']
-        addr = data['companyAddress']
-        phone = data['companyPhone']
-        dept_name = data['deptName']
-        emp_name = data['empName']
-        emp_email = data['empMail']
-        emp_phone = data['empNum']
-        emp_skills = data['empSkills']
+        name = data.get('companyName')
+        addr = data.get('companyAddress')
+        phone = data.get('companyPhone')
+        dept_name = data.get('deptName')
+        emp_name = data.get('empName')
+        emp_email = data.get('empEmail')
+        emp_phone = data.get('empPhone')
+        emp_skills = data.get('empSkills')
 
-        create_company_with_departments_and_employees(name, addr, phone, dept_name, emp_name, emp_email, emp_phone, emp_skills)
+        new_company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone)
+        new_company.save()
+        c_id = new_company.c_id
 
+        new_dept = Department.objects.create(d_name=dept_name, c_id=c_id)
+        new_dept.save()
+        dept_id = new_dept.d_id
+
+        new_employee = Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='Super Manager', emp_phone=emp_phone, d_id=dept_id)
+        new_employee.save()
+
+        
         return JsonResponse({'message': 'Company views registration successful'}, status=201)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 
