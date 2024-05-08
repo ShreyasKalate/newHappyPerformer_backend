@@ -9,4 +9,5 @@ urlpatterns = [
     path('login/', views.Login, name='login'),
     path('register/', views.Register, name='register'),
     path('terms/', views.TermsAndConditions, name='terms'),
+    path('employee-master/', views.Employee_Master, name='employeemaster'),
 ]

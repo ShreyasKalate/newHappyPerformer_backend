@@ -19,13 +19,9 @@ class Company(models.Model):
 class Department(models.Model):
     d_id = models.BigAutoField(primary_key=True)
     d_name = models.CharField(max_length=20)
-    add_date = models.CharField(max_length=200, null=True, default=None)
     c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
-    class Meta:
-        indexes = [
-            models.Index(fields=['d_name', 'c_id'], name='Department_d_name_c_id'),
-            models.Index(fields=['c_id'], name='Department_c_id'),
-        ]
+    add_date = models.DateTimeField(null=True, auto_now_add=True)
+
 
 class Employee(AbstractBaseUser):
     emp_name = models.CharField(max_length=30)
@@ -35,20 +31,13 @@ class Employee(AbstractBaseUser):
     emp_pwd = models.CharField(max_length=15, default='changeme')
     emp_phone = models.CharField(max_length=11)
     emp_profile = models.CharField(max_length=100, default='profile.png')
-    d_id = models.IntegerField()
     add_date = models.CharField(max_length=200, null=True, default=None)
     pay_sts = models.CharField(max_length=200, null=True, default=None)
     Status = models.CharField(max_length=8, default='Active')
     likes = models.CharField(max_length=10000, default='0')
-
     d_id = models.ForeignKey(Department, on_delete=models.CASCADE, db_column='d_id')
-    
     USERNAME_FIELD = 'emp_emailid'
     REQUIRED_FIELDS = ['emp_pwd']
-    class Meta:
-        indexes = [
-            models.Index(fields=['d_id'], name='Employee_d_id'),
-        ]
 
 
 class Adhaar(models.Model):
