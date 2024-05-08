@@ -76,13 +76,13 @@ def Register(request):
 
 @csrf_exempt
 def Employee_Master(request):
-    # name, department name,  mobile number,  email
-    employees = Employee.objects.all().values('emp_name', 'emp_emailid', 'emp_phone')
-    departments = Department.objects.all().values('d_name')
+
+    employees = Employee.objects.all().values('emp_name', 'emp_emailid', 'emp_phone', 'd_id')
+    departments = Department.objects.all().values('d_name','d_id')
 
     data = {
         'employees': list(employees),
         'departments': list(departments)
     }
-    print(data)
+    
     return JsonResponse(data)
