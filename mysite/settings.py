@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'rest_framework',
     'happyPerformerBackend',
 
 ]
@@ -82,8 +83,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'mysite.wsgi.application'
 
 
-AUTH_USER_MODEL = "happyPerformerBackend.Employee"
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
@@ -92,20 +91,11 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'postgres',
        'USER': 'postgres',
-<<<<<<< Updated upstream
-       'PASSWORD': '1601',
-=======
-       'PASSWORD': '634912',
->>>>>>> Stashed changes
+       'PASSWORD': '123456',
        'HOST': 'localhost',
        'PORT': '5432',
     }
 }
-
-
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
-]
 
 
 # Password validation

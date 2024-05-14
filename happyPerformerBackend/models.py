@@ -1,10 +1,8 @@
 from django.db import models
-from django.contrib.auth.models import User
-from django.contrib.auth.models import AbstractBaseUser
 
 class Company(models.Model):
     c_id = models.BigAutoField(primary_key=True)
-    c_name = models.CharField(max_length=30, null=True)
+    c_name = models.CharField(max_length=30)
     c_addr = models.CharField(max_length=50, null=True, default=None)
     c_phone = models.BigIntegerField()
     add_date = models.CharField(max_length=200, null=True, default=None)
@@ -19,26 +17,32 @@ class Company(models.Model):
 class Department(models.Model):
     d_id = models.BigAutoField(primary_key=True)
     d_name = models.CharField(max_length=20)
+    add_date = models.CharField(max_length=200, null=True, default=None)
     c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
-    add_date = models.DateTimeField(null=True, auto_now_add=True)
+    class Meta:
+        indexes = [
+            models.Index(fields=['d_name', 'c_id'], name='department_d_name_c_id'),
+            models.Index(fields=['c_id'], name='department_c_id'),
+        ]
 
-
-class Employee(AbstractBaseUser):
+class Employee(models.Model):
     emp_name = models.CharField(max_length=30)
     emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
     emp_skills = models.CharField(max_length=150)
     emp_role = models.CharField(max_length=50)
     emp_pwd = models.CharField(max_length=15, default='changeme')
     emp_phone = models.CharField(max_length=11)
-    emp_profile = models.ImageField(null=True, blank=True)
+    emp_profile = models.CharField(max_length=100, default='profile.png')
+    d_id = models.IntegerField()
     add_date = models.CharField(max_length=200, null=True, default=None)
     pay_sts = models.CharField(max_length=200, null=True, default=None)
     Status = models.CharField(max_length=8, default='Active')
     likes = models.CharField(max_length=10000, default='0')
+    class Meta:
+        indexes = [
+            models.Index(fields=['d_id'], name='employee_d_id'),
+        ]
     d_id = models.ForeignKey(Department, on_delete=models.CASCADE, db_column='d_id')
-    USERNAME_FIELD = 'emp_emailid'
-    REQUIRED_FIELDS = ['emp_pwd']
-
 
 class Adhaar(models.Model):
     A_Id = models.BigAutoField(primary_key=True)
@@ -48,7 +52,7 @@ class Adhaar(models.Model):
     adhaar_pic = models.CharField(max_length=150)
     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
 
-class adhoc(models.Model):
+class Adhoc(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=20 )
     dept = models.CharField(max_length=255)
@@ -58,13 +62,13 @@ class adhoc(models.Model):
     amt = models.IntegerField()
 
 
-class admintable(models.Model):
+class Admintable(models.Model):
     id = models.BigAutoField(primary_key=True)
     user_id = models.CharField(max_length=200, null=True, default=None)
     role = models.CharField(max_length=200, null=True, default=None)
     full_name = models.CharField(max_length=200, null=True, default=None)
     user = models.CharField(max_length=255, null=True, default=None)
-    password = models.CharField(max_length=255, null=True, default="changeme")
+    password = models.CharField(max_length=255, null=True, default=None)
     otp_id = models.CharField(max_length=200, null=True, default=None)
     otp = models.CharField(max_length=200, null=True, default=None)
     status = models.CharField(max_length=200, null=True, default=None)
@@ -73,7 +77,7 @@ class admintable(models.Model):
     modified_at = models.CharField(max_length=200, null=True, default=None)
 
 
-class admin_log(models.Model):
+class Admin_log(models.Model):
     id = models.BigAutoField(primary_key=True)
     admin_id = models.CharField(max_length=200, null=True, default=None)
     my_ip = models.CharField(max_length=200, null=True, default=None)
@@ -81,19 +85,19 @@ class admin_log(models.Model):
     logged_out = models.CharField(max_length=200, null=True, default=None)
 
 
-class answer(models.Model):
+class Answer(models.Model):
     id = models.BigAutoField(primary_key=True)
     qid = models.TextField()
     ansid = models.TextField()
 
 
-class ans_static(models.Model):
+class Ans_static(models.Model):
     id = models.BigAutoField(primary_key=True)
     qid = models.CharField(max_length=50)
     ansid = models.CharField(max_length=50)
 
 
-class attendance(models.Model):
+class Attendance(models.Model):
     id = models.BigAutoField(primary_key=True)
     emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid')
     log_type = models.BooleanField(null=True, default=None)
@@ -104,7 +108,7 @@ class attendance(models.Model):
     date_updated = models.DateTimeField(null=True, default=None)
 
 
-class banktransferstatement(models.Model):
+class Banktransferstatement(models.Model):
     batchid = models.BigAutoField(primary_key=True)
     debitno = models.CharField(max_length=21)
     date = models.CharField(max_length=21)
@@ -118,7 +122,7 @@ class banktransferstatement(models.Model):
     amount = models.CharField(max_length=30)
 
 
-class bank_details(models.Model):
+class Bank_details(models.Model):
     B_Id = models.BigAutoField(primary_key=True)
     holder_name = models.CharField(max_length=150, null=True, default=None)
     bank_name = models.CharField(max_length=150, null=True, default=None)
@@ -130,7 +134,7 @@ class bank_details(models.Model):
     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
 
 
-class case(models.Model):
+class Case(models.Model):
     create_for = models.CharField(max_length=50)
     case_type = models.CharField(max_length=50)
     case_title = models.TextField()
@@ -147,20 +151,20 @@ class case(models.Model):
         ]
 
 
-class certificate(models.Model):
+class Certificate(models.Model):
     id = models.BigAutoField(primary_key=True)
     Email_id = models.CharField(max_length=50)
     en_no = models.CharField(max_length=50)
     course_title = models.CharField(max_length=50)
 
 
-class chat(models.Model):
+class Chat(models.Model):
     chatid = models.BigAutoField(primary_key=True)
     sender_id = models.CharField(max_length=50)
     reciever_id = models.CharField(max_length=50)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
-    case_id = models.ForeignKey(case, on_delete=models.CASCADE, db_column='case_id')
+    case_id = models.ForeignKey(Case, on_delete=models.CASCADE, db_column='case_id')
 
     class Meta:
         indexes = [
@@ -168,7 +172,7 @@ class chat(models.Model):
         ]
 
 
-class chatbot_categories(models.Model):
+class Chatbot_categories(models.Model):
     cat_id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
     c_id = models.IntegerField(null=True, default=None)
@@ -180,7 +184,7 @@ class chatbot_categories(models.Model):
     c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
 
 
-class chatbot_questions(models.Model):
+class Chatbot_questions(models.Model):
     id = models.BigAutoField(primary_key=True)
     category_id = models.BigIntegerField()
     question = models.CharField(max_length=255)
@@ -193,7 +197,7 @@ class chatbot_questions(models.Model):
 
 
 
-class clearance(models.Model):
+class Clearance(models.Model):
     Clearance_Id = models.BigAutoField(primary_key=True)
     Accounts = models.CharField(max_length=5, default='No')
     Hr = models.CharField(max_length=5, default='No')
@@ -210,7 +214,7 @@ class clearance(models.Model):
         ]
 
 
-class comments(models.Model):
+class Comments(models.Model):
     cid = models.BigAutoField(primary_key=True)
     uid = models.CharField(max_length=120, null=True, default=None)
     date = models.TextField(null=True, default=None)
@@ -219,15 +223,15 @@ class comments(models.Model):
     course_name = models.CharField(max_length=300, null=True, default=None)
     com = models.CharField(max_length=3000)
 
-class course(models.Model):
+class Courses(models.Model):
     course_id = models.BigAutoField(primary_key=True)
     course_title = models.CharField(max_length=25)
     description = models.CharField(max_length=500)
-    Thumbnail = models.CharField(max_length=500)
+    thumbnail = models.CharField(max_length=500)
     c_id = models.IntegerField()
     c_name = models.CharField(max_length=50)
 
-class course_Employee(models.Model):
+class Course_employee(models.Model):
     id = models.BigAutoField(primary_key=True)
     course_title = models.CharField(max_length=60)
     Email_id = models.CharField(max_length=50)
@@ -235,7 +239,7 @@ class course_Employee(models.Model):
     Start_date = models.DateTimeField(auto_now_add=True)
 
 
-class custom_forms(models.Model):
+class Custom_forms(models.Model):
     seq = models.BigAutoField(primary_key=True)
     form_name = models.CharField(max_length=255)
     c_id = models.IntegerField()
@@ -247,7 +251,7 @@ class custom_forms(models.Model):
         ]
     c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
 
-class custom_forms_questions(models.Model):
+class Custom_forms_questions(models.Model):
     label = models.CharField(max_length=250)
     type = models.CharField(max_length=20, null=True, default=None)
     ID = models.CharField(max_length=50)
@@ -264,7 +268,7 @@ class custom_forms_questions(models.Model):
 
 
 
-class custom_letters(models.Model):
+class Custom_letters(models.Model):
     seq = models.BigAutoField(primary_key=True)
     letter_name = models.CharField(max_length=250)
     c_id = models.IntegerField()
@@ -278,7 +282,7 @@ class custom_letters(models.Model):
     c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
 
 
-class dependent(models.Model):
+class Dependent(models.Model):
     D_Id = models.BigAutoField(primary_key=True)
     D_name = models.CharField(max_length=150, null=True, blank=True)
     D_gender = models.CharField(max_length=50, null=True, blank=True)
@@ -293,11 +297,11 @@ class dependent(models.Model):
     P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id')
 
 
-class earnedleave(models.Model):
+class Earnedleave(models.Model):
     emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
     earnedleave = models.IntegerField()
 
-class email_alert(models.Model):
+class Email_alert(models.Model):
     alert_id = models.BigAutoField(primary_key=True)
     status = models.IntegerField()
     type = models.CharField(max_length=200, null=True, default=None)
@@ -308,7 +312,7 @@ class email_alert(models.Model):
     task_id = models.IntegerField(null=True, default=None)
 
 
-class endorsement(models.Model):
+class Endorsement(models.Model):
     e_id = models.BigAutoField(primary_key=True)
     emailid = models.CharField(max_length=50)
     endorse = models.CharField(max_length=1000)
@@ -320,7 +324,7 @@ class endorsement(models.Model):
             models.Index(fields=['emailid'], name='endorsement_emailid'),
         ]
 
-class events(models.Model):
+class Events(models.Model):
     evt_id = models.BigAutoField(primary_key=True)
     evt_type = models.CharField(max_length=20, null=True, default=None)
     evt_start = models.DateField()
@@ -330,7 +334,7 @@ class events(models.Model):
     status = models.BooleanField(default=False)
     emp_emailid = models.CharField(max_length=50, null=True, default=None)
 
-class expenses(models.Model):
+class Expenses(models.Model):
     expense_id = models.BigAutoField(primary_key=True)
     emp_emailid = models.CharField(max_length=50)
     expense = models.IntegerField()
@@ -338,7 +342,7 @@ class expenses(models.Model):
     expenseitm = models.CharField(max_length=255)
 
 
-class family_details(models.Model):
+class Family_details(models.Model):
     F_Id = models.BigAutoField(primary_key=True)
     F_name = models.CharField(max_length=200)
     F_gender = models.CharField(max_length=50)
@@ -355,7 +359,7 @@ class family_details(models.Model):
         ]
     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
 
-class faqs(models.Model):
+class Faqs(models.Model):
     faq_id = models.BigAutoField(primary_key=True)
     question = models.CharField(max_length=500)
     answer = models.CharField(max_length=1000, null=True, default=None)
@@ -368,7 +372,7 @@ class faqs(models.Model):
             models.Index(fields=['c_id'], name='faqs_c_id'),
         ]
 
-class feedback(models.Model):
+class Feedback(models.Model):
     fid = models.BigAutoField(primary_key=True)
     emp_emailid = models.CharField(max_length=50)
     skill = models.CharField(max_length=1000)
@@ -376,17 +380,17 @@ class feedback(models.Model):
     reason = models.CharField(max_length=100)
     date = models.DateTimeField(auto_now_add=True)
 
-class files(models.Model):
+class Files(models.Model):
     id = models.BigAutoField(primary_key=True)
     file_name = models.CharField(max_length=255, null=True, default=None)
     job_desc_id = models.IntegerField(null=True, default=None)
     sop_id = models.IntegerField(null=True, default=None)
 
 
-class forms(models.Model):
+class Forms(models.Model):
     form_id = models.BigAutoField(primary_key=True)
     emp_emailid = models.CharField(max_length=15)
-    form_type = models.CharField(max_length=50, choices=[('job_description', 'Job Description'), ('kra_table', 'KRA Table'), ('sop', 'SOP'), ('', 'None')], default='')
+    form_type = models.CharField(max_length=50, choices=[('job_description', 'Job Description'), ('Kra_table', 'KRA Table'), ('sop', 'SOP'), ('', 'None')], default='')
     form_data = models.CharField(max_length=100, null=True, default=None)
     ratings = models.CharField(max_length=1, choices=[('1', '1'), ('2', '2'), ('3', '3'), ('4', '4')], default='1')
     remark = models.CharField(max_length=50)
@@ -400,7 +404,7 @@ class forms(models.Model):
             models.Index(fields=['emp_emailid'], name='forms_emp_emailid_idx'),
         ]
 
-class history(models.Model):
+class History(models.Model):
     id = models.BigAutoField(primary_key=True)
     username = models.CharField(max_length=50)
     eid = models.TextField()
@@ -435,7 +439,7 @@ class ITDeclaration80c(models.Model):
         ]
 
 
-class itdeclaration80d_new(models.Model):
+class Itdeclaration80d_new(models.Model):
     Emp_id = models.CharField(max_length=50, primary_key=True)
     Investment1 = models.CharField(max_length=100, default='Medi claim Policy for Self,Spouse,Children-80D')
     Investment1_Amount = models.IntegerField(default=0)
@@ -456,7 +460,7 @@ class itdeclaration80d_new(models.Model):
             models.Index(fields=['Emp_id'], name='itdeclaration80d_new_Emp_id'),
         ]
 
-class itdeclaration_oie_new(models.Model):
+class Itdeclaration_oie_new(models.Model):
     Emp_id = models.CharField(max_length=50, primary_key=True)
     Investment1 = models.CharField(max_length=50, default='Additional Exemptions on voluntary NPS')
     Investment1_Amount = models.IntegerField(default=0)
@@ -474,7 +478,7 @@ class itdeclaration_oie_new(models.Model):
         ]
 
 
-class itdeclaration_osi_new(models.Model):
+class Itdeclaration_osi_new(models.Model):
     Emp_id = models.CharField(max_length=50, primary_key=True)
     Investment1 = models.CharField(max_length=50, default='Income from other sources')
     Investment1_Amount = models.IntegerField()
@@ -487,11 +491,11 @@ class itdeclaration_osi_new(models.Model):
     Emp_id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='Emp_id')
 
 
-class jd_table(models.Model):
+class Jd_table(models.Model):
     jd_id = models.BigAutoField(primary_key=True)
 
 
-class job_desc(models.Model):
+class Job_desc(models.Model):
     job_desc_id = models.BigAutoField(primary_key=True)
     jd_name = models.CharField(max_length=150, null=True, default=None)
     responsiblities = models.CharField(max_length=5000)
@@ -504,7 +508,7 @@ class job_desc(models.Model):
     jid = models.IntegerField()
 
 
-class job_info(models.Model):
+class Job_info(models.Model):
      J_Id = models.BigAutoField(primary_key=True)
      job_title = models.CharField(max_length=250, null=True, default=None)
      department = models.CharField(max_length=150, null=True, default=None)
@@ -517,11 +521,11 @@ class job_info(models.Model):
              models.Index(fields=['P_Id'], name='job_info_P_Id_idx'),
          ]
 
-class kra_table(models.Model):
+class Kra_table(models.Model):
     kra_id = models.BigAutoField(primary_key=True)
 
 
-class kra(models.Model):
+class Kra(models.Model):
     kra_no = models.BigAutoField(primary_key=True)
     KRA = models.CharField(max_length=50)
     Weightage = models.IntegerField()
@@ -540,14 +544,14 @@ class kra(models.Model):
     status = models.IntegerField(default=0)
     kra_id = models.IntegerField()
     email_id = models.CharField(max_length=100, null=True, default=None)
-    kra_id = models.ForeignKey(kra_table, on_delete=models.CASCADE, db_column='kra_id')
+    kra_id = models.ForeignKey(Kra_table, on_delete=models.CASCADE, db_column='kra_id')
 
     class Meta:
         indexes = [
             models.Index(fields=['kra_id'], name='kra_kra_id_idx'),
         ]
 
-class leavecounttemp(models.Model):
+class Leavecounttemp(models.Model):
     emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
     casualleave = models.IntegerField(default=15)
     medicalleave = models.IntegerField(default=15)
@@ -555,14 +559,14 @@ class leavecounttemp(models.Model):
     earnedleave = models.IntegerField()
 
 
-class leavetype(models.Model):
+class Leavetype(models.Model):
     id = models.AutoField(primary_key=True)
     LeaveType = models.CharField(max_length=200, null=True)
     Description = models.TextField(null=True)
     Limit = models.IntegerField(default=0)
     CreationDate = models.DateTimeField(auto_now_add=True)
 
-class leave_encashment(models.Model):
+class Leave_encashment(models.Model):
     LE_id = models.BigAutoField(primary_key=True)
     txndt = models.DateField()
     refn = models.IntegerField()
@@ -578,7 +582,7 @@ class leave_encashment(models.Model):
         indexes = [
             models.Index(fields=['emp'], name='leave_encashment_emp_idx'),
         ]
-class licence(models.Model):
+class Licence(models.Model):
     Licence_Id = models.BigAutoField(primary_key=True)
     licence_no = models.CharField(max_length=100)
     issue_date = models.DateField()
@@ -590,7 +594,7 @@ class licence(models.Model):
         ]
     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
 
-class loan(models.Model):
+class Loan(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=255)
     emp_emailid = models.CharField(max_length=255)
@@ -602,7 +606,7 @@ class loan(models.Model):
     status = models.IntegerField()
 
 
-class login(models.Model):
+class Login(models.Model):
     login_id = models.BigAutoField(primary_key=True)
     emp_emailid = models.CharField(max_length=50)
     class Meta:
@@ -611,12 +615,12 @@ class login(models.Model):
         ]
     emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid')
 
-class messages(models.Model):
+class Messages(models.Model):
     id = models.BigAutoField(primary_key=True)
     message = models.TextField(null=True)
     created_at = models.DateTimeField(null=True)
 
-class off_cycle(models.Model):
+class Off_cycle(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=20)
     tname = models.CharField(max_length=20)
@@ -624,21 +628,21 @@ class off_cycle(models.Model):
     effdt = models.DateField()
     note = models.CharField(max_length=255)
 
-class options(models.Model):
+class Options(models.Model):
     id = models.BigAutoField(primary_key=True)
     qid = models.CharField(max_length=50)
     option = models.CharField(max_length=2000)
     optionid = models.TextField()
 
 
-class options_static(models.Model):
+class Options_static(models.Model):
     id = models.BigAutoField(primary_key=True)
     qid = models.CharField(max_length=50)
     option = models.CharField(max_length=100)
     optionid = models.CharField(max_length=50)
 
 
-class ot(models.Model):
+class Ot(models.Model):
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=200)
     hours_worked = models.IntegerField()
@@ -646,7 +650,7 @@ class ot(models.Model):
     overtime = models.IntegerField()
 
 
-class pan(models.Model):
+class Pan(models.Model):
     Pan_Id = models.BigAutoField(primary_key=True)
     pan_no = models.BigIntegerField()
     pan_name = models.CharField(max_length=200)
@@ -659,7 +663,7 @@ class pan(models.Model):
     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
 
 
-class passport(models.Model):
+class Passport(models.Model):
     Pass_Id = models.BigAutoField(primary_key=True)
     passport_no = models.BigIntegerField()
     passport_name = models.CharField(max_length=200)
@@ -673,14 +677,14 @@ class passport(models.Model):
     P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id')
 
 
-class pdf(models.Model):
+class Pdf(models.Model):
     pdf_id = models.BigAutoField(primary_key=True)
     pdf_name = models.CharField(max_length=100)
     location = models.CharField(max_length=100)
     course_id = models.IntegerField()
     descr = models.CharField(max_length=100)
 
-class personal_details(models.Model):
+class Personal_details(models.Model):
     first_name = models.CharField(max_length=50, null=True, blank=True)
     last_name = models.CharField(max_length=50, null=True, blank=True)
     Contact = models.CharField(max_length=20, null=True, blank=True)
@@ -702,7 +706,7 @@ class personal_details(models.Model):
     mail = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
 
-class poifiles_new(models.Model):
+class Poifiles_new(models.Model):
     id = models.BigAutoField(primary_key=True)
     Emp_id = models.CharField(max_length=50)
     Year = models.CharField(max_length=7)
@@ -729,7 +733,7 @@ class poifiles_new(models.Model):
     Emp_id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
 
-class qualification(models.Model):
+class Qualification(models.Model):
     Q_Id = models.BigAutoField(primary_key=True)
     q_type = models.CharField(max_length=100)
     q_degree = models.CharField(max_length=100)
@@ -745,7 +749,7 @@ class qualification(models.Model):
         ]
     P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
-class questions(models.Model):
+class Questions(models.Model):
     id = models.IntegerField(primary_key=True)
     eid = models.TextField()
     qid = models.TextField()
@@ -753,7 +757,7 @@ class questions(models.Model):
     choice = models.IntegerField()
     sn = models.IntegerField()
 
-class questions_static(models.Model):
+class Questions_static(models.Model):
     id = models.IntegerField(primary_key=True)
     vid = models.CharField(max_length=100)
     qid = models.CharField(max_length=100)
@@ -761,7 +765,7 @@ class questions_static(models.Model):
     choice = models.IntegerField()
     sn = models.IntegerField()
 
-class quiz(models.Model):
+class Quiz(models.Model):
     id = models.IntegerField(primary_key=True)
     eid = models.TextField()
     title = models.CharField(max_length=100)
@@ -774,13 +778,13 @@ class quiz(models.Model):
     date = models.TextField()
     status = models.CharField(max_length=10)
 
-class reporting(models.Model):
+class Reporting(models.Model):
     id = models.IntegerField(primary_key=True)
     c_id = models.IntegerField()
     Reporting_from = models.CharField(max_length=50)
     Reporting_to = models.CharField(max_length=50)
 
-class resignation(models.Model):
+class Resignation(models.Model):
     R_Id = models.BigAutoField(primary_key=True)
     submit_date = models.DateTimeField(auto_now_add=True)
     exp_leave = models.DateField()
@@ -803,46 +807,46 @@ class resignation(models.Model):
         ]
     P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
-class resp_47feedback_test(models.Model):
+class Resp_47feedback_test(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
 
 
-class resp_47gh(models.Model):
+class Resp_47gh(models.Model):
     emp_name = models.CharField(max_length=255,primary_key=True)
 
-class resp_59Employee_detail_form(models.Model):
+class Resp_59employee_detail_form(models.Model):
     emp_name = models.CharField(max_length=255,primary_key=True)
 
-class resp_59feedback_form(models.Model):
+class Resp_59feedback_form(models.Model):
     emp_name = models.CharField(max_length=255,primary_key=True)
     q1 = models.CharField(max_length=255, null=True, blank=True)
 
-class resp_59feedback_form1(models.Model):
+class Resp_59feedback_form1(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
     q2 = models.CharField(max_length=255, null=True, blank=True)
 
 
-class resp_60feedback_form(models.Model):
+class Resp_60feedback_form(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
     hay = models.CharField(max_length=255, null=True, blank=True)
 
 
-class resp_148feedback_form(models.Model):
+class Resp_148feedback_form(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
 
-class resp_148testt365g(models.Model):
+class Resp_148testt365g(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
 
-class resp_157example_form(models.Model):
+class Resp_157example_form(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
 
-class resp_157feedback_form(models.Model):
+class Resp_157feedback_form(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
 
-class resp_Employee_detail_form(models.Model):
+class Resp_employee_detail_form(models.Model):
     emp_name = models.CharField(max_length=255,primary_key=True)
 
-class salary(models.Model):
+class Salary(models.Model):
     sal_id = models.IntegerField(primary_key=True)
     id = models.CharField(max_length=50)
     payout_month = models.CharField(max_length=50)
@@ -868,13 +872,13 @@ class salary(models.Model):
     holdsalary = models.IntegerField(default=0)
     paid = models.IntegerField(default=0)
 
-class score_final(models.Model):
+class Score_final(models.Model):
     id = models.IntegerField(primary_key=True)
     username = models.CharField(max_length=50)
     score = models.IntegerField()
     time = models.DateTimeField(auto_now=True)
 
-class sop(models.Model):
+class Sop(models.Model):
     sop_id = models.IntegerField(primary_key=True)
     type = models.CharField(max_length=20, null=True, blank=True)
     s_name = models.CharField(max_length=30)
@@ -887,7 +891,7 @@ class sop(models.Model):
     d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id')
 
 
-class tasks(models.Model):
+class Tasks(models.Model):
     task_id = models.BigAutoField(primary_key=True)
     dpt_head = models.CharField(max_length=50, null=True, blank=True)
     dpt_auditor = models.CharField(max_length=50, null=True, blank=True)
@@ -905,7 +909,7 @@ class tasks(models.Model):
     ratings = models.IntegerField(default=0)
     remark = models.CharField(max_length=30, null=True, blank=True)
     class Meta:
-        db_table = 'tasks'
+
         indexes = [
             models.Index(fields=['d_id']),
             models.Index(fields=['dpt_head']),
@@ -916,16 +920,16 @@ class tasks(models.Model):
             models.Index(fields=['sop_id']),
             models.Index(fields=['tid']),
         ]
-    d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id', related_name='tasks')
+    d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id', related_name='Tasks')
     dpt_head = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='dpt_head', related_name='tasks_dpt_head')
     dpt_auditor = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='dpt_auditor', related_name='tasks_dpt_auditor')
     emp_emailid = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, db_column='emp_emailid', related_name='tasks_emp_emailid')
     job_desc_id = models.ForeignKey('job_desc', on_delete=models.CASCADE, db_column='job_desc_id', null=True, blank=True, related_name='tasks_job_desc')
-    kra_id = models.ForeignKey('kra_table', on_delete=models.CASCADE, db_column='kra_id', null=True, blank=True, related_name='tasks_kra')
+    kra_id = models.ForeignKey('Kra_table', on_delete=models.CASCADE, db_column='kra_id', null=True, blank=True, related_name='tasks_kra')
     sop_id = models.ForeignKey('sop', on_delete=models.CASCADE, db_column='sop_id', null=True, blank=True, related_name='tasks_sop')
     tid = models.ForeignKey('todotasks', on_delete=models.CASCADE, db_column='tid', null=True, blank=True, related_name='tasks_tid')
 
-class tblleaves(models.Model):
+class Tblleaves(models.Model):
     id = models.BigAutoField(primary_key=True)
     LeaveType = models.CharField(max_length=110)
     ToDate = models.CharField(max_length=120)
@@ -938,7 +942,7 @@ class tblleaves(models.Model):
     Status = models.IntegerField()
     IsRead = models.IntegerField()
 
-class todotasks(models.Model):
+class Todotasks(models.Model):
     tid = models.BigAutoField(primary_key=True)
     description = models.CharField(max_length=300)
     date = models.DateTimeField(auto_now_add=True)
@@ -948,7 +952,7 @@ class todotasks(models.Model):
             models.Index(fields=['evt_id']),
         ]
 
-class user_answer(models.Model):
+class User_answer(models.Model):
     id = models.BigAutoField(primary_key=True)
     qid = models.CharField(max_length=50)
     ans = models.CharField(max_length=50)
@@ -956,7 +960,7 @@ class user_answer(models.Model):
     eid = models.CharField(max_length=50)
     username = models.CharField(max_length=50)
 
-class video(models.Model):
+class Video(models.Model):
     video_id = models.BigAutoField(primary_key=True)
     video_name = models.CharField(max_length=100)
     location = models.TextField()
@@ -968,7 +972,7 @@ class video(models.Model):
             models.Index(fields=['course_id']),
         ]
 
-class work_exp(models.Model):
+class Work_exp(models.Model):
     W_Id = models.BigAutoField(primary_key=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
@@ -983,4 +987,3 @@ class work_exp(models.Model):
             models.Index(fields=['P_Id']),
         ]
     P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
-
