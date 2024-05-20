@@ -924,14 +924,13 @@ class Tasks(models.Model):
     dpt_head = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='dpt_head', related_name='tasks_dpt_head')
     dpt_auditor = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='dpt_auditor', related_name='tasks_dpt_auditor')
     emp_emailid = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, db_column='emp_emailid', related_name='tasks_emp_emailid')
-    job_desc_id = models.ForeignKey('job_desc', on_delete=models.CASCADE, db_column='job_desc_id', null=True, blank=True, related_name='tasks_job_desc')
+    job_desc_id = models.ForeignKey('Job_desc', on_delete=models.CASCADE, db_column='job_desc_id', null=True, blank=True, related_name='tasks_job_desc')
     kra_id = models.ForeignKey('Kra_table', on_delete=models.CASCADE, db_column='kra_id', null=True, blank=True, related_name='tasks_kra')
-    sop_id = models.ForeignKey('sop', on_delete=models.CASCADE, db_column='sop_id', null=True, blank=True, related_name='tasks_sop')
-    tid = models.ForeignKey('todotasks', on_delete=models.CASCADE, db_column='tid', null=True, blank=True, related_name='tasks_tid')
+    sop_id = models.ForeignKey('Sop', on_delete=models.CASCADE, db_column='sop_id', null=True, blank=True, related_name='tasks_sop')
+    tid = models.ForeignKey('Todotasks', on_delete=models.CASCADE, db_column='tid', null=True, blank=True, related_name='tasks_tid')
 
 class Tblleaves(models.Model):
     id = models.BigAutoField(primary_key=True)
-    LeaveType = models.CharField(max_length=110)
     ToDate = models.CharField(max_length=120)
     FromDate = models.CharField(max_length=120)
     Days = models.IntegerField()
@@ -941,6 +940,8 @@ class Tblleaves(models.Model):
     AdminRemarkDate = models.CharField(max_length=120, null=True, blank=True)
     Status = models.IntegerField()
     IsRead = models.IntegerField()
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.SET_NULL, null=True, blank=True, db_column='emp_emailid')
+    LeaveType = models.ForeignKey('LeaveType', on_delete=models.CASCADE)
 
 class Todotasks(models.Model):
     tid = models.BigAutoField(primary_key=True)
@@ -964,7 +965,7 @@ class Video(models.Model):
     video_id = models.BigAutoField(primary_key=True)
     video_name = models.CharField(max_length=100)
     location = models.TextField()
-    course_id = models.IntegerField()
+    course_id = models.ForeignKey('Courses', on_delete=models.CASCADE)
     descr = models.CharField(max_length=200)
 
     class Meta:

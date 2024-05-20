@@ -18,9 +18,8 @@ urlpatterns = [
     path('AddMediaContent/', views.AddMediaContent, name='AddMediaContent'),
     path('UpdateDeleteMedia/', views.UpdateDeleteMedia, name='UpdateDeleteMedia'),
     path('UpdateMedia/<int:course_id>', views.UpdateMedia, name='UpdateMedia'),
-    path('DeleteMedia/<int:course_id>/', views.DeleteMedia, name='DeleteMedia'),
     path('EmployeeDetails/', views.EmployeeDetails, name='EmployeeDetails'),
-    path('EmployeeDetailsDelete/Delete/<str:emp_emailid>', views.EmployeeDetailsDelete, name='EmployeeDetailsDelete'),
     path('AttendanceDetails/', views.AttendanceDetails, name='AttendanceDetails'),
     path('AttendanceDetailsDelete/Delete/<int:id>', views.AttendanceDetailsDelete, name='AttendanceDetailsDelete'),
+    path('LeaveDashboard', views.LeaveDashboard, name='LeaveDashboard'),
 ]

@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.core import serializers
+from django.db import connection
 
 
 @csrf_exempt
@@ -262,7 +263,6 @@ def UpdateDeleteMedia(request):
 
 @csrf_exempt
 def UpdateMedia(request, course_id):
-    # Get the company id (c_id and email from session)
     if request.method == 'GET':
         try:
             course = Courses.objects.get(course_id=course_id)
@@ -292,25 +292,18 @@ def UpdateMedia(request, course_id):
                 for video_data in data['videos']:
                     video_id = video_data.get('video_id')
                     if video_id:
-                        video = Video.objects.get(video_id=video_id)
+                        video = Video.objects.get(video_id=video_id, course_id=course_id)
                         video.location = video_data.get('location', video.location)
                         video.descr = video_data.get('descr', video.descr)
                         video.save()
 
             return JsonResponse({'message': 'Course updated successfully'}, status=200)
-        except Courses.DoesNotExist:
-            return JsonResponse({'error': 'Course not found'}, status=404)
-        except Video.DoesNotExist:
-            return JsonResponse({'error': 'Video not found'}, status=404)
+        except (Courses.DoesNotExist, Video.DoesNotExist):
+            return JsonResponse({'error': 'Course or video not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
-
-@csrf_exempt
-def DeleteMedia(request, course_id):
-    if request.method == 'DELETE':
+    elif request.method == 'DELETE':
         try:
             media_content = Courses.objects.get(course_id=course_id)
             media_content.delete()
@@ -319,15 +312,17 @@ def DeleteMedia(request, course_id):
             return JsonResponse({'error': 'Media content not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
     else:
-        return JsonResponse({'error': 'Only DELETE requests are allowed'}, status=405)
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
 
 
 @csrf_exempt
 def EmployeeDetails(request):
-    # Need to fetch company id to provide all emp details of that company
-    # Hardcoded values for now
+    # Hardcoded company ID for now
     c_id = 81
+
     if request.method == 'GET':
         try:
             departments = Department.objects.filter(c_id=c_id).values('d_name', 'd_id')
@@ -340,12 +335,10 @@ def EmployeeDetails(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
-
-@csrf_exempt
-def EmployeeDetailsDelete(request, emp_emailid):
-    if request.method == 'DELETE':
+    elif request.method == 'DELETE':
+        emp_emailid = request.GET.get('emp_emailid')
+        if not emp_emailid:
+            return JsonResponse({'error': 'Employee email ID is required'}, status=400)
         try:
             employee = Employee.objects.get(emp_emailid=emp_emailid)
             employee.delete()
@@ -354,6 +347,7 @@ def EmployeeDetailsDelete(request, emp_emailid):
             return JsonResponse({'error': 'Employee not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
@@ -404,3 +398,37 @@ def AttendanceDetailsDelete(request, id):
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
+
+
+def LeaveDashboard(request):
+    if request.method == 'GET':
+        # Need to fetch company id. Hardcoded as of now
+        company_id = 81
+
+        empcount = Employee.objects.filter(d_id__c_id=company_id).count()
+        dptcount = Department.objects.filter(c_id=company_id).count()
+        leavtypcount = Leavetype.objects.count()
+
+        leaves_fetched = Tblleaves.objects.select_related('emp_emailid', 'LeaveType').order_by('-id')
+
+        leaves_data = []
+        for leave in leaves_fetched:
+            leave_dict = {
+                'lid': leave.id,
+                'emp_name': leave.emp_emailid.emp_name,
+                'emp_emailid': leave.emp_emailid.emp_emailid,
+                'LeaveType': leave.LeaveType_id,
+                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                'Status': leave.Status,
+            }
+            leaves_data.append(leave_dict)
+
+        response_data = {
+            'empcount': empcount,
+            'dptcount': dptcount,
+            'leavtypcount': leavtypcount,
+            'leaves_fetched': leaves_data,
+        }
+        return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
