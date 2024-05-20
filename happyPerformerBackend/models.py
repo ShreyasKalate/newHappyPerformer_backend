@@ -45,7 +45,7 @@ class Adhaar(models.Model):
     adhaar_name = models.CharField(max_length=200)
     enroll_no = models.PositiveIntegerField()
     adhaar_pic = models.CharField(max_length=150)
-    P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Adhoc(models.Model):
     id = models.AutoField(primary_key=True)
@@ -126,7 +126,7 @@ class Bank_details(models.Model):
     acc_type = models.CharField(max_length=150, null=True, default=None)
     ifsc = models.CharField(max_length=50, null=True, default=None)
     Pan_no = models.CharField(max_length=50, null=True, default=None)
-    P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Case(models.Model):
@@ -136,6 +136,7 @@ class Case(models.Model):
     case_desc = models.TextField()
     case_id = models.BigAutoField(primary_key=True)
     case_date = models.DateTimeField(auto_now_add=True)
+    case_status = models.CharField(max_length=30, default='New')
     created_by = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id', related_name='created_cases')
     case_status = models.CharField(max_length=30, default='New')
     assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='assigned_to', null=True, default=None, related_name='assigned_cases')
@@ -144,7 +145,6 @@ class Case(models.Model):
             models.Index(fields=['created_by'], name='case_created_by_idx'),
             models.Index(fields=['assigned_to'], name='case_assigned_to_idx'),
         ]
-
 
 class Certificate(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -200,13 +200,8 @@ class Clearance(models.Model):
     IT = models.CharField(max_length=5, default='No')
     Project = models.CharField(max_length=5, default='No')
     status = models.CharField(max_length=20, default='Pending')
-    employee_id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id', related_name='clearances_requested')
-    given_by = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='given_by', null=True, default=None, related_name='clearances_given')
-    class Meta:
-        indexes = [
-            models.Index(fields=['employee_id'], name='clearance_employee_idx'),
-            models.Index(fields=['given_by'], name='clearance_given_by_idx'),
-        ]
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
+    given_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='given_by', null=True, default=None, related_name='clearances_given')
 
 
 class Comments(models.Model):
@@ -269,12 +264,7 @@ class Custom_letters(models.Model):
     c_id = models.IntegerField()
     letter_content = models.TextField(null=True, default=None)
     alloc = models.CharField(max_length=250, null=True, default=None)
-    class Meta:
-        indexes = [
-            models.Index(fields=['letter_name', 'c_id'], name='custom_letters_lname_c_id' ),
-            models.Index(fields=['c_id'], name='custom_letters_c_id_idx'),
-        ]
-    c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 
 class Dependent(models.Model):
@@ -284,12 +274,7 @@ class Dependent(models.Model):
     D_dob = models.DateField(null=True, blank=True)
     D_relation = models.CharField(max_length=100, null=True, blank=True)
     D_desc = models.TextField(null=True, blank=True)
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Earnedleave(models.Model):
@@ -346,13 +331,7 @@ class Family_details(models.Model):
     F_mail = models.CharField(max_length=100)
     F_relation = models.CharField(max_length=100)
     F_comment = models.TextField()
-    P_Id = models.CharField(max_length=50)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id'], name='family_details_P_Id'),
-        ]
-    P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Faqs(models.Model):
     faq_id = models.BigAutoField(primary_key=True)
@@ -360,7 +339,7 @@ class Faqs(models.Model):
     answer = models.CharField(max_length=1000, null=True, default=None)
     emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid', related_name='faqs_created')
     imp = models.BooleanField(default=False)
-    c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id', related_name='faqs')
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id', related_name='faqs')
     class Meta:
         indexes = [
             models.Index(fields=['emp_emailid'], name='faqs_emp_emailid'),
@@ -392,7 +371,7 @@ class Forms(models.Model):
     appreciation = models.CharField(max_length=50)
     status = models.BooleanField(default=None)
     date = models.DateField()
-    emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
     class Meta:
         indexes = [
@@ -448,12 +427,8 @@ class Itdeclaration80d_new(models.Model):
     Investment5_Amount = models.IntegerField(default=0)
     Investment6 = models.CharField(max_length=100, default='Preventive health check up for parents - 80D')
     Investment6_Amount = models.IntegerField(default=0)
-    Emp_id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='Emp_id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['Emp_id'], name='itdeclaration80d_new_Emp_id'),
-        ]
 
 class Itdeclaration_oie_new(models.Model):
     Emp_id = models.CharField(max_length=50, primary_key=True)
@@ -465,13 +440,7 @@ class Itdeclaration_oie_new(models.Model):
     Investment3_Amount = models.IntegerField(default=0)
     Investment4 = models.CharField(max_length=50, default='Treatment of dependent with severe disability')
     Investment4_Amount = models.IntegerField(default=0)
-    Emp_id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='Emp_id')
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['Emp_id'], name='itdeclaration_oie_new_Emp_id'),
-        ]
-
+    emp_emaiid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Itdeclaration_osi_new(models.Model):
     Emp_id = models.CharField(max_length=50, primary_key=True)
@@ -483,7 +452,7 @@ class Itdeclaration_osi_new(models.Model):
     Investment3_Amount = models.IntegerField()
     Investment4 = models.CharField(max_length=50, default='Interest Earned from National Savings certificates')
     Investment4_Amount = models.IntegerField()
-    Emp_id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='Emp_id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Jd_table(models.Model):
@@ -509,12 +478,8 @@ class Job_info(models.Model):
      department = models.CharField(max_length=150, null=True, default=None)
      working_type = models.CharField(max_length=100, null=True, default=None)
      start_date = models.DateField(null=True, default=None)
-     P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
-     class Meta:
-         indexes = [
-             models.Index(fields=['P_Id'], name='job_info_P_Id_idx'),
-         ]
 
 class Kra_table(models.Model):
     kra_id = models.BigAutoField(primary_key=True)
@@ -573,21 +538,12 @@ class Leave_encashment(models.Model):
     sal = models.IntegerField(null=True)
     enclve = models.IntegerField(null=True)
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['emp'], name='leave_encashment_emp_idx'),
-        ]
 class Licence(models.Model):
     Licence_Id = models.BigAutoField(primary_key=True)
     licence_no = models.CharField(max_length=100)
     issue_date = models.DateField()
     expiry_date = models.DateField()
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Loan(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -608,7 +564,7 @@ class Login(models.Model):
         indexes = [
             models.Index(fields=['emp_emailid'], name='login_emp_emailid_idx'),
         ]
-    emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Messages(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -650,12 +606,7 @@ class Pan(models.Model):
     pan_no = models.BigIntegerField()
     pan_name = models.CharField(max_length=200)
     pan_pic = models.CharField(max_length=150)
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Passport(models.Model):
@@ -664,12 +615,7 @@ class Passport(models.Model):
     passport_name = models.CharField(max_length=200)
     passport_validity = models.DateField()
     passport_pic = models.CharField(max_length=150)
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Pdf(models.Model):
@@ -698,7 +644,7 @@ class Personal_details(models.Model):
         indexes = [
             models.Index(fields=['mail']),
         ]
-    mail = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    mail = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Poifiles_new(models.Model):
@@ -725,7 +671,7 @@ class Poifiles_new(models.Model):
         indexes = [
             models.Index(fields=['Emp_id']),
         ]
-    Emp_id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    Emp_id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Qualification(models.Model):
@@ -737,12 +683,7 @@ class Qualification(models.Model):
     q_duration = models.IntegerField()
     q_yop = models.IntegerField()
     q_comment = models.TextField(null=True, blank=True)
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Questions(models.Model):
     id = models.IntegerField(primary_key=True)
@@ -793,14 +734,9 @@ class Resignation(models.Model):
     shortfall_date = models.IntegerField(null=True, blank=True)
     exit_interview = models.DateField(null=True, blank=True)
     last_working = models.DateField(null=True, blank=True)
-    P_Id = models.CharField(max_length=50)
     status = models.CharField(max_length=30, default='Pending')
     approved_by = models.CharField(max_length=50, null=True, blank=True)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Resp_47feedback_test(models.Model):
     emp_name = models.CharField(max_length=255, primary_key=True)
@@ -878,11 +814,6 @@ class Sop(models.Model):
     type = models.CharField(max_length=20, null=True, blank=True)
     s_name = models.CharField(max_length=30)
     sdate = models.DateField(null=True, blank=True)
-    d_id = models.IntegerField()
-    class Meta:
-        indexes = [
-            models.Index(fields=['d_id']),
-        ]
     d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id')
 
 
@@ -977,9 +908,4 @@ class Work_exp(models.Model):
     designation = models.CharField(max_length=150, null=True, blank=True)
     gross_salary = models.FloatField(null=True, blank=True)
     leave_reason = models.TextField(null=True, blank=True)
-    P_Id = models.CharField(max_length=50)
-    class Meta:
-        indexes = [
-            models.Index(fields=['P_Id']),
-        ]
-    P_Id = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')

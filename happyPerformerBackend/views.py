@@ -685,3 +685,33 @@ def RejectedLeaves(request):
         return JsonResponse(response_data, safe=False)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def ResignationView(request):
+     # Need to fetch company id. Hardcoded as of now
+    c_id = 81
+
+    departments = Department.objects.filter(c_id=c_id)
+    employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+    resignations = Resignation.objects.select_related('employee', 'employee__department', 'employee__jobinfo').filter(employee__department__c_id=Department.objects.filter(employee__emp_emailid=emp_emailid).values('c_id').first()['c_id'])
+
+    resignation_data = []
+    for resignation in resignations:
+        interval = (timezone.now().date() - resignation.employee.jobinfo.start_date).days
+        length_of_service = '{} years {} months'.format(interval // 365, (interval % 365) // 30)
+        resignation_data.append({
+            'emp_name': resignation.employee.emp_name,
+            'emp_profile': resignation.employee.emp_profile,
+            'emp_emailid': resignation.employee.emp_emailid,
+            'emp_role': resignation.employee.emp_role,
+            'status': resignation.status,
+            'start_date': resignation.employee.jobinfo.start_date,
+            'leave_date': resignation.leave_date,
+            'exp_leave': resignation.exp_leave,
+            'length_of_service': length_of_service,
+            'shortfall_date': resignation.shortfall_date,
+        })
+
+    return render(request, 'resignation.html', {'resignation_data': resignation_data})
