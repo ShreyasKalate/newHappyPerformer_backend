@@ -20,6 +20,5 @@ urlpatterns = [
     path('UpdateMedia/<int:course_id>', views.UpdateMedia, name='UpdateMedia'),
     path('EmployeeDetails/', views.EmployeeDetails, name='EmployeeDetails'),
     path('AttendanceDetails/', views.AttendanceDetails, name='AttendanceDetails'),
-    path('AttendanceDetailsDelete/Delete/<int:id>', views.AttendanceDetailsDelete, name='AttendanceDetailsDelete'),
     path('LeaveDashboard', views.LeaveDashboard, name='LeaveDashboard'),
 ]

@@ -187,6 +187,7 @@ def AddCourses(request):
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
+
 @csrf_exempt
 def UploadMedia(request):
     if request.method == 'POST':
@@ -213,6 +214,7 @@ def UploadMedia(request):
             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 @csrf_exempt
 def UploadPdf(request):
@@ -317,7 +319,6 @@ def UpdateMedia(request, course_id):
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 
-
 @csrf_exempt
 def EmployeeDetails(request):
     # Hardcoded company ID for now
@@ -351,54 +352,50 @@ def EmployeeDetails(request):
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
+from django.http import JsonResponse
+
 
 @csrf_exempt
 def AttendanceDetails(request):
+    # Hardcoded company ID for now
+    c_id = 81
+
     if request.method == 'GET':
         try:
-            # Need to fetch company id to provide all emp details of that company
-            # Hardcoded values for now
-            c_id = 81
             departments = Department.objects.filter(c_id=c_id).values_list('d_id', flat=True)
-            employees = Employee.objects.filter(d_id__in=departments).values('emp_name', 'emp_emailid')
-            emp_id = [e['emp_emailid'] for e in employees]
-            attendance_data = Attendance.objects.filter(emp_emailid__in=emp_id).values('id','datetime_log', 'log_type', 'emp_emailid')
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+            emp_emails = [e['emp_emailid'] for e in employees]
+            attendance_data = Attendance.objects.filter(emp_emailid__in=emp_emails).values('id','datetime_log', 'log_type', 'emp_emailid')
 
             data = []
             for attendance in attendance_data:
-                employee = next((e for e in employees if e['emp_emailid'] == attendance['emp_emailid']), None)
-                if employee:
-                    data.append({
-                        'id': attendance['id'],
-                        'emp_email': attendance['emp_emailid'],
-                        'emp_name': employee['emp_name'],
-                        'date': attendance['datetime_log'],
-                        'log_type': attendance['log_type'],
-                        'time': attendance['datetime_log']
-                    })
+                data.append({
+                    'id': attendance['id'],
+                    'emp_email': attendance['emp_emailid'],
+                    'date': attendance['datetime_log'],
+                    'log_type': attendance['log_type'],
+                    'time': attendance['datetime_log']
+                })
             return JsonResponse({'data': data})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
-
-
-@csrf_exempt
-def AttendanceDetailsDelete(request, id):
-    if request.method == 'DELETE':
+    elif request.method == 'DELETE':
+        id = request.GET.get('id')
+        if not id:
+            return JsonResponse({'error': 'Attendance ID is required'}, status=400)
         try:
             attendance = Attendance.objects.get(id=id)
             attendance.delete()
-            return JsonResponse({'message': 'Attendance Record deleted successfully'})
+            return JsonResponse({'message': 'Attendance record deleted successfully'})
         except Attendance.DoesNotExist:
-            return JsonResponse({'error': 'Attendance Record not found'}, status=404)
+            return JsonResponse({'error': 'Attendance record not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
-
-
+    
 
 def LeaveDashboard(request):
     if request.method == 'GET':
