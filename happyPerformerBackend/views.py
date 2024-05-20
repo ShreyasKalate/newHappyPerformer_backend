@@ -551,3 +551,137 @@ def EditLeaveType(request, id):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def Leaves(request):
+    # Need to fetch company id. Hardcoded as of now
+    company_id = 82
+
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=company_id)
+        dptcount = departments.count()
+        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+        empcount = employees.count()
+        leavtypcount = Leavetype.objects.count()
+
+        emp_emails = [e['emp_emailid'] for e in employees]
+        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails).order_by('-id')
+
+        leaves_data = []
+        for leave in leaves_fetched:
+            leave_dict = {
+                'lid': leave.id,
+                'emp_name': leave.emp_emailid.emp_name,
+                'emp_emailid': leave.emp_emailid.emp_emailid,
+                'LeaveType': leave.LeaveType_id,
+                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                'Status': leave.Status,
+            }
+            leaves_data.append(leave_dict)
+
+        response_data = {
+            'empcount': empcount,
+            'dptcount': dptcount,
+            'leavtypcount': leavtypcount,
+            'leaves_fetched': leaves_data,
+        }
+        return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def PendingLeaves(request):
+     # Need to fetch company id. Hardcoded as of now
+    company_id = 81
+
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=company_id)
+        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+        emp_emails = [e['emp_emailid'] for e in employees]
+        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=0).order_by('-id')
+
+        leaves_data = []
+        for leave in leaves_fetched:
+            leave_dict = {
+                'lid': leave.id,
+                'emp_name': leave.emp_emailid.emp_name,
+                'emp_emailid': leave.emp_emailid.emp_emailid,
+                'LeaveType': leave.LeaveType_id,
+                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                'Status': leave.Status,
+            }
+            leaves_data.append(leave_dict)
+
+        response_data = {
+            'leaves_fetched': leaves_data
+        }
+        return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def ApprovedLeaves(request):
+     # Need to fetch company id. Hardcoded as of now
+    company_id = 82
+
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=company_id)
+        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+        emp_emails = [e['emp_emailid'] for e in employees]
+        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=1).order_by('-id')
+
+        leaves_data = []
+        for leave in leaves_fetched:
+            leave_dict = {
+                'lid': leave.id,
+                'emp_name': leave.emp_emailid.emp_name,
+                'emp_emailid': leave.emp_emailid.emp_emailid,
+                'LeaveType': leave.LeaveType_id,
+                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                'Status': leave.Status,
+            }
+            leaves_data.append(leave_dict)
+
+        response_data = {
+            'leaves_fetched': leaves_data
+        }
+        return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def RejectedLeaves(request):
+     # Need to fetch company id. Hardcoded as of now
+    company_id = 81
+
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=company_id)
+        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+        emp_emails = [e['emp_emailid'] for e in employees]
+        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=2).order_by('-id')
+
+        leaves_data = []
+        for leave in leaves_fetched:
+            leave_dict = {
+                'lid': leave.id,
+                'emp_name': leave.emp_emailid.emp_name,
+                'emp_emailid': leave.emp_emailid.emp_emailid,
+                'LeaveType': leave.LeaveType_id,
+                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                'Status': leave.Status,
+            }
+            leaves_data.append(leave_dict)
+
+        response_data = {
+            'leaves_fetched': leaves_data
+        }
+        return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)

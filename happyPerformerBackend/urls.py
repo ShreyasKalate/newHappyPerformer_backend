@@ -24,4 +24,8 @@ urlpatterns = [
     path('LeaveDetails/', views.LeaveDetails, name='LeaveDetails'),
     path('ManageLeaveType/', views.ManageLeaveType, name='ManageLeaveType'),
     path('EditLeaveType/<int:id>/', views.EditLeaveType, name='EditLeaveType'),
+    path('Leaves/', views.Leaves, name='Leaves'),
+    path('PendingLeaves/', views.PendingLeaves, name='PendingLeaves'),
+    path('ApprovedLeaves/', views.ApprovedLeaves, name='ApprovedLeaves'),
+    path('RejectedLeaves/', views.RejectedLeaves, name='RejectedLeaves'),
 ]
