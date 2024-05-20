@@ -395,18 +395,21 @@ def AttendanceDetails(request):
 
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
-    
+
 
 def LeaveDashboard(request):
-    if request.method == 'GET':
-        # Need to fetch company id. Hardcoded as of now
-        company_id = 81
+    # Need to fetch company id. Hardcoded as of now
+    company_id = 82
 
-        empcount = Employee.objects.filter(d_id__c_id=company_id).count()
-        dptcount = Department.objects.filter(c_id=company_id).count()
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=company_id)
+        dptcount = departments.count()
+        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+        empcount = employees.count()
         leavtypcount = Leavetype.objects.count()
 
-        leaves_fetched = Tblleaves.objects.select_related('emp_emailid', 'LeaveType').order_by('-id')
+        emp_emails = [e['emp_emailid'] for e in employees]
+        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails).order_by('-id')
 
         leaves_data = []
         for leave in leaves_fetched:
@@ -427,5 +430,39 @@ def LeaveDashboard(request):
             'leaves_fetched': leaves_data,
         }
         return JsonResponse(response_data, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+def LeaveDetails(request):
+    if request.method == 'GET':
+        try:
+            leave_id = request.GET.get('id')
+            if not leave_id:
+                return JsonResponse({'error': 'Leave ID is required'}, status=400)
+
+            leave_dict = Tblleaves.objects.filter(id=leave_id).values(
+                'id', 'LeaveType', 'ToDate', 'FromDate', 'Description', 'PostingDate', 'Status',
+                'AdminRemark', 'AdminRemarkDate', 'emp_emailid__emp_name', 'emp_emailid__emp_phone',
+                'emp_emailid__d_id', 'emp_emailid__emp_role'
+            ).first()
+
+            if not leave_dict:
+                return JsonResponse({'error': 'Leave not found'}, status=404)
+
+            # Check if the user is associated with the company that the leave belongs to
+            # add this to leave_dict values=> 'emp_emailid__d_id__c_id',
+            # user_company_id = request.user.profile.company_id
+            # if leave_details['emp_emailid__d_id__c_id'] != user_company_id:
+            #     return JsonResponse({'error': 'You are not authorized to view this leave details'}, status=403)
+
+
+            leave_dict['emp_emailid__emp_name'] = leave_dict['emp_emailid__emp_name'].strip()
+            leave_dict['PostingDate'] = leave_dict['PostingDate'].isoformat()
+            leave_dict['AdminRemarkDate'] = leave_dict['AdminRemarkDate'].isoformat() if leave_dict['AdminRemarkDate'] else None
+
+            return JsonResponse(leave_dict, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
