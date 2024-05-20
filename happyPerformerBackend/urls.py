@@ -21,5 +21,7 @@ urlpatterns = [
     path('EmployeeDetails/', views.EmployeeDetails, name='EmployeeDetails'),
     path('AttendanceDetails/', views.AttendanceDetails, name='AttendanceDetails'),
     path('LeaveDashboard/', views.LeaveDashboard, name='LeaveDashboard'),
-    path('LeaveDetails/', views.LeaveDetails, name='LeaveDetails'), 
+    path('LeaveDetails/', views.LeaveDetails, name='LeaveDetails'),
+    path('ManageLeaveType/', views.ManageLeaveType, name='ManageLeaveType'),
+    path('EditLeaveType/<int:id>/', views.EditLeaveType, name='EditLeaveType'),
 ]

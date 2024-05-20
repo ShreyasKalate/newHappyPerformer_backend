@@ -397,9 +397,10 @@ def AttendanceDetails(request):
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 
+@csrf_exempt
 def LeaveDashboard(request):
     # Need to fetch company id. Hardcoded as of now
-    company_id = 82
+    company_id = 81
 
     if request.method == 'GET':
         departments = Department.objects.filter(c_id=company_id)
@@ -434,6 +435,7 @@ def LeaveDashboard(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+@csrf_exempt
 def LeaveDetails(request):
     if request.method == 'GET':
         try:
@@ -456,7 +458,6 @@ def LeaveDetails(request):
             # if leave_details['emp_emailid__d_id__c_id'] != user_company_id:
             #     return JsonResponse({'error': 'You are not authorized to view this leave details'}, status=403)
 
-
             leave_dict['emp_emailid__emp_name'] = leave_dict['emp_emailid__emp_name'].strip()
             leave_dict['PostingDate'] = leave_dict['PostingDate'].isoformat()
             leave_dict['AdminRemarkDate'] = leave_dict['AdminRemarkDate'].isoformat() if leave_dict['AdminRemarkDate'] else None
@@ -464,5 +465,89 @@ def LeaveDetails(request):
             return JsonResponse(leave_dict, safe=False)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def ManageLeaveType(request):
+    if request.method == 'GET':
+        leavetypes = Leavetype.objects.all()
+        leavetypes_list = []
+
+        for leavetype in leavetypes:
+            leavetype_dict = {
+                'id': leavetype.id,
+                'LeaveType': leavetype.LeaveType,
+                'Description': leavetype.Description,
+                'Limit': leavetype.Limit,
+                'CreationDate': leavetype.CreationDate.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            leavetypes_list.append(leavetype_dict)
+
+        return JsonResponse(leavetypes_list, safe=False)
+
+    # uncommment this create a new leave type
+    # elif request.method == 'POST':
+    #     try:
+    #         data = json.loads(request.body)
+    #         leavetype = Leavetype.objects.create(
+    #             LeaveType=data['LeaveType'],
+    #             Description=data['Description'],
+    #             Limit=data['Limit'],
+    #             # CreationDate will be auto-generated
+    #         )
+    #         return JsonResponse({'message': 'Leave Type created successfully'}, status=201)
+    #     except Exception as e:
+    #         return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        try:
+            leave_id = request.GET.get('id')
+            if leave_id:
+                leavetype = Leavetype.objects.get(id=leave_id)
+                leavetype.delete()
+                return JsonResponse({'message': 'Leave Type deleted successfully'})
+            else:
+                return JsonResponse({'error': 'Leave ID is required for deletion'}, status=400)
+        except Leavetype.DoesNotExist:
+            return JsonResponse({'error': 'Leave Type not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def EditLeaveType(request, id):
+    if request.method == 'GET':
+        leavetype = Leavetype.objects.get(id=id)
+        leavetype_data = {
+                'LeaveType': leavetype.LeaveType,
+                'Description': leavetype.Description,
+                'Limit': leavetype.Limit,
+            }
+        print(leavetype_data)
+        return JsonResponse(leavetype_data, safe=False)
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            leavetype = Leavetype.objects.get(id=id)
+            if 'LeaveType' in data:
+                leavetype.LeaveType = data['LeaveType']
+            if 'Description' in data:
+                leavetype.Description = data['Description']
+            if 'Limit' in data:
+                leavetype.Limit = data['Limit']
+            print(data)
+            leavetype.save()
+            return JsonResponse({'message': 'Leave Type updated successfully'}, status=200)
+        except Leavetype.DoesNotExist:
+            return JsonResponse({'error': 'Leave Type not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
