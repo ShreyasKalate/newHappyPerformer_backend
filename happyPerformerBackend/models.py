@@ -19,11 +19,6 @@ class Department(models.Model):
     d_name = models.CharField(max_length=20)
     add_date = models.CharField(max_length=200, null=True, default=None)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
-    class Meta:
-        indexes = [
-            models.Index(fields=['d_name', 'c_id'], name='department_d_name_c_id'),
-            models.Index(fields=['c_id'], name='department_c_id'),
-        ]
 
 class Employee(models.Model):
     emp_name = models.CharField(max_length=30)
@@ -94,13 +89,13 @@ class Ans_static(models.Model):
 
 class Attendance(models.Model):
     id = models.BigAutoField(primary_key=True)
-    emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid')
     log_type = models.BooleanField(null=True, default=None)
     user_ip = models.CharField(max_length=200, null=True, default=None)
     latitude = models.CharField(max_length=200, null=True, default=None)
     longitude = models.CharField(max_length=200, null=True, default=None)
     datetime_log = models.CharField(max_length=200, null=True, default=None)
     date_updated = models.DateTimeField(null=True, default=None)
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
 
 class Banktransferstatement(models.Model):
@@ -137,9 +132,8 @@ class Case(models.Model):
     case_id = models.BigAutoField(primary_key=True)
     case_date = models.DateTimeField(auto_now_add=True)
     case_status = models.CharField(max_length=30, default='New')
-    created_by = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='P_Id', related_name='created_cases')
-    case_status = models.CharField(max_length=30, default='New')
-    assigned_to = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='assigned_to', null=True, default=None, related_name='assigned_cases')
+    created_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id', related_name='created_cases')
+    assigned_to = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='assigned_to', null=True, default=None, related_name='assigned_cases')
     class Meta:
         indexes = [
             models.Index(fields=['created_by'], name='case_created_by_idx'),
@@ -159,35 +153,19 @@ class Chat(models.Model):
     reciever_id = models.CharField(max_length=50)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
-    case_id = models.ForeignKey(Case, on_delete=models.CASCADE, db_column='case_id')
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['case_id'], name='chat_case_id_idx'),
-        ]
+    case_id = models.ForeignKey('Case', on_delete=models.CASCADE, db_column='case_id')
 
 
 class Chatbot_categories(models.Model):
     cat_id = models.BigAutoField(primary_key=True)
     category = models.CharField(max_length=255)
-    c_id = models.IntegerField(null=True, default=None)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['c_id'], name='chatbot_categories_c_id_idx'),
-        ]
-    c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 
 class Chatbot_questions(models.Model):
     id = models.BigAutoField(primary_key=True)
-    category_id = models.BigIntegerField()
     question = models.CharField(max_length=255)
     reply = models.CharField(max_length=255)
-    class Meta:
-        indexes = [
-            models.Index(fields=['category_id'], name='chatbot_questions_category'),
-        ]
     category_id = models.ForeignKey('chatbot_categories', on_delete=models.CASCADE, db_column='category_id')
 
 
@@ -218,28 +196,23 @@ class Courses(models.Model):
     course_title = models.CharField(max_length=25)
     description = models.CharField(max_length=500)
     thumbnail = models.CharField(max_length=500)
-    c_id = models.IntegerField()
-    c_name = models.CharField(max_length=50)
+    c_name = models.CharField(max_length=30)
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 class Course_employee(models.Model):
     id = models.BigAutoField(primary_key=True)
-    course_title = models.CharField(max_length=60)
-    Email_id = models.CharField(max_length=50)
     status = models.IntegerField()
     Start_date = models.DateTimeField(auto_now_add=True)
+    course_title = models.CharField(max_length=25,default=None)
+    course_id = models.ForeignKey('Courses', on_delete=models.CASCADE, db_column='course_id', default=None)
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 
 class Custom_forms(models.Model):
     seq = models.BigAutoField(primary_key=True)
     form_name = models.CharField(max_length=255)
-    c_id = models.IntegerField()
     alloc = models.CharField(max_length=250, null=True, default=None)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['c_id'], name='custom_forms'),
-        ]
-    c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 class Custom_forms_questions(models.Model):
     label = models.CharField(max_length=250)
@@ -248,13 +221,7 @@ class Custom_forms_questions(models.Model):
     name = models.CharField(max_length=50, primary_key=True)
     optionName = models.CharField(max_length=250, null=True, default=None)
     form_name = models.CharField(max_length=255)
-    c_id = models.IntegerField()
-
-    class Meta:
-        indexes = [
-            models.Index(fields=['c_id'], name='custom_forms_questions'),
-        ]
-    c_id = models.ForeignKey(Company, on_delete=models.CASCADE, db_column='c_id')
+    c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 
 

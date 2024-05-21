@@ -171,7 +171,8 @@ def AddCourses(request):
                 description=description,
                 thumbnail='demo',
                 # Hardcoded c_id and c_name for now
-                c_id=1,
+                c_id=81,
+                # Need to fetch comany name from the company
                 c_name='Some Name'
             )
 
@@ -719,3 +720,14 @@ def ResignationView(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def DisplayTraining(request):
+    # Need to fetch company id and email. Hardcoded as of now
+    c_id = 81
+    emp_emailid = "abc@gmail.com"
+
+    courses = Courses.objects.filter(c_id=c_id,course_employee__emp_emailid=emp_emailid, course_employee__course_id__c_id=c_id,  course_employee__emp_emailid__d_id__c_id=c_id  ).distinct().values('course_title', 'thumbnail', 'description')
+
+    return JsonResponse(list(courses), safe=False, status=200)

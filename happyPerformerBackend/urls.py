@@ -29,4 +29,5 @@ urlpatterns = [
     path('ApprovedLeaves/', views.ApprovedLeaves, name='ApprovedLeaves'),
     path('RejectedLeaves/', views.RejectedLeaves, name='RejectedLeaves'),
     path('ResignationView/', views.ResignationView, name='ResignationView'),
+    path('DisplayTraining/', views.DisplayTraining, name='DisplayTraining'),
 ]
