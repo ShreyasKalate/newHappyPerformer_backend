@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.core import serializers
 from django.db import connection
-
+from django.utils import timezone
 
 @csrf_exempt
 def Home(request):
@@ -34,19 +34,18 @@ def TermsAndConditions(request):
 @csrf_exempt
 def Login(request):
     if request.method == 'POST':
-        data = request.POST
+        data = json.loads(request.body)
 
         email = data.get('email')
         password = data.get('password')
 
-        User = authenticate(emp_emailid=email, emp_pwd=password)
-
-        if User is not None:
+        try:
+            user = Employee.objects.get(emp_emailid=email, emp_pwd=password)
             return JsonResponse({'message': 'Login successful'}, status=200)
-        else:
+        except Employee.DoesNotExist:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
-
-    return JsonResponse({'error': 'Invalid credentials'}, status=401)
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 
 @csrf_exempt
@@ -689,29 +688,34 @@ def RejectedLeaves(request):
 
 @csrf_exempt
 def ResignationView(request):
-     # Need to fetch company id. Hardcoded as of now
+    # Need to fetch company id. Hardcoded as of now
     c_id = 81
 
-    departments = Department.objects.filter(c_id=c_id)
-    employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+    if request.method == 'GET':
+        departments = Department.objects.filter(c_id=c_id)
+        employees = Employee.objects.filter(d_id__in=departments)
 
-    resignations = Resignation.objects.select_related('employee', 'employee__department', 'employee__jobinfo').filter(employee__department__c_id=Department.objects.filter(employee__emp_emailid=emp_emailid).values('c_id').first()['c_id'])
+        resignations = Resignation.objects.select_related('emp_emailid').filter(emp_emailid__d_id__in=departments)
 
-    resignation_data = []
-    for resignation in resignations:
-        interval = (timezone.now().date() - resignation.employee.jobinfo.start_date).days
-        length_of_service = '{} years {} months'.format(interval // 365, (interval % 365) // 30)
-        resignation_data.append({
-            'emp_name': resignation.employee.emp_name,
-            'emp_profile': resignation.employee.emp_profile,
-            'emp_emailid': resignation.employee.emp_emailid,
-            'emp_role': resignation.employee.emp_role,
-            'status': resignation.status,
-            'start_date': resignation.employee.jobinfo.start_date,
-            'leave_date': resignation.leave_date,
-            'exp_leave': resignation.exp_leave,
-            'length_of_service': length_of_service,
-            'shortfall_date': resignation.shortfall_date,
-        })
+        resignation_data = []
+        for resignation in resignations:
+            job_info = Job_info.objects.get(emp_emailid=resignation.emp_emailid.emp_emailid)
+            interval = (timezone.now().date() - job_info.start_date).days
+            length_of_service = '{} years {} months'.format(interval // 365, (interval % 365) // 30)
+            resignation_data.append({
+                'emp_name': resignation.emp_emailid.emp_name,
+                'emp_profile': resignation.emp_emailid.emp_profile,
+                'emp_emailid': resignation.emp_emailid.emp_emailid,
+                'emp_role': resignation.emp_emailid.emp_role,
+                'status': resignation.status,
+                'start_date': job_info.start_date,
+                'leave_date': resignation.leave_date,
+                'exp_leave': resignation.exp_leave,
+                'length_of_service': length_of_service,
+                'shortfall_date': resignation.shortfall_date,
+            })
 
-    return render(request, 'resignation.html', {'resignation_data': resignation_data})
+        return JsonResponse(resignation_data, safe=False)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)

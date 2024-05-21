@@ -28,4 +28,5 @@ urlpatterns = [
     path('PendingLeaves/', views.PendingLeaves, name='PendingLeaves'),
     path('ApprovedLeaves/', views.ApprovedLeaves, name='ApprovedLeaves'),
     path('RejectedLeaves/', views.RejectedLeaves, name='RejectedLeaves'),
+    path('ResignationView/', views.ResignationView, name='ResignationView'),
 ]
