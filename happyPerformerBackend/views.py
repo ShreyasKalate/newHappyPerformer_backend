@@ -31,19 +31,59 @@ def About(request):
 def TermsAndConditions(request):
     return JsonResponse({"data":"Terms and Conditions Page reached without any issues"})
 
+
 @csrf_exempt
 def Login(request):
     if request.method == 'POST':
+        if request.session.get('user_id'):
+            return JsonResponse({'message': 'User already logged in'}, status=200)
+
         data = json.loads(request.body)
 
-        email = data.get('email')
-        password = data.get('password')
+        emp_emailid = data.get('emp_emailid')
+        emp_pwd = data.get('emp_pwd')
 
         try:
-            user = Employee.objects.get(emp_emailid=email, emp_pwd=password)
-            return JsonResponse({'message': 'Login successful'}, status=200)
+            user = Employee.objects.get(emp_emailid=emp_emailid, emp_pwd=emp_pwd)
+
+            department = user.d_id
+            company = department.c_id
+
+            request.session['user_id'] = user.emp_emailid
+            request.session['emp_name'] = user.emp_name
+            request.session['emp_emailid'] = user.emp_emailid
+            request.session['d_id'] = department.d_id
+            request.session['d_name'] = department.d_name
+            request.session['c_id'] = company.c_id
+            request.session['c_name'] = company.c_name
+
+            response_data = {
+                'message': 'Login successful',
+                'user_id': user.emp_emailid,
+                'emp_name': user.emp_name,
+                'emp_emailid': user.emp_emailid,
+                'd_id': department.d_id,
+                'd_name': department.d_name,
+                'c_id': company.c_id,
+                'c_name': company.c_name,
+            }
+
+            return JsonResponse(response_data, status=200)
+
         except Employee.DoesNotExist:
             return JsonResponse({'error': 'Invalid credentials'}, status=401)
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+@csrf_exempt
+def Logout(request):
+    if request.method == 'POST':
+        if 'user_id' in request.session:
+            request.session.flush()
+            return JsonResponse({'message': 'Logout successful'}, status=200)
+        else:
+            return JsonResponse({'error': 'No user is logged in'}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
@@ -81,17 +121,22 @@ def Register(request):
 
 
 @csrf_exempt
-def Employee_Master(request):
+def EmployeeMaster(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
 
-    employees = Employee.objects.all().values('emp_name', 'emp_emailid', 'emp_phone', 'd_id')
-    departments = Department.objects.all().values('d_name','d_id')
+    if user_id and company_id:
+        employees = Employee.objects.filter(d_id__c_id=company_id).values(
+            'emp_name', 'emp_emailid', 'emp_phone', 'd_id',  'd_id__d_name'
+            )
 
-    data = {
-        'employees': list(employees),
-        'departments': list(departments)
-    }
+        data = {
+            'employees': list(employees)
+        }
 
-    return JsonResponse(data)
+        return JsonResponse(data)
+    else:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
 
 
 @csrf_exempt
@@ -104,7 +149,6 @@ def Profile(request, id):
     except Exception as e:
         print("Error fetching employee data:", e)
         return JsonResponse({'error': 'Internal Server Error'}, status=500)
-
 
 
 @csrf_exempt
@@ -130,6 +174,7 @@ def SopAndPolicies(request):
         'files': list(files_data)
     }
     return JsonResponse(data, safe=False)
+
 
 @csrf_exempt
 @require_http_methods(["PUT"])
@@ -728,6 +773,6 @@ def DisplayTraining(request):
     c_id = 81
     emp_emailid = "abc@gmail.com"
 
-    courses = Courses.objects.filter(c_id=c_id,course_employee__emp_emailid=emp_emailid, course_employee__course_id__c_id=c_id,  course_employee__emp_emailid__d_id__c_id=c_id  ).distinct().values('course_title', 'thumbnail', 'description')
+    courses = Courses.objects.filter(c_id=c_id,course_employee__emp_emailid=emp_emailid, course_employee__course_id__c_id=c_id,  course_employee__emp_emailid__d_id__c_id=c_id  ).distinct().values('course_id','course_title', 'thumbnail', 'description')
 
     return JsonResponse(list(courses), safe=False, status=200)
