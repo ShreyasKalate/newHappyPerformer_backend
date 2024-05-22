@@ -113,7 +113,7 @@ def Register(request):
             if first_dept_id is None:
                 first_dept_id = Department.objects.order_by('-pk').first()
 
-        Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='HR', emp_phone=emp_phone, d_id=first_dept_id)
+        Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='Super Manager', emp_phone=emp_phone, d_id=first_dept_id)
 
         return JsonResponse({'message': 'Company registration successful'}, status=201)
     else:
@@ -153,37 +153,67 @@ def Profile(request, id):
 
 @csrf_exempt
 def SopAndPolicies(request):
-    # id = request.user.email
-    eid = 'abc@gmail.com'
+    # Get user ID and company ID from session
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
 
-    #Tables needed
-    # tasks= ratings, remark, selfratings (emp_emailid, pk:task_id, fk:sop_id)
-    # sop table= sop_id, type, s_name, sdate
-    # files table= file_name (fk: sop_id, pk:id)
+    # Check if user is logged in
+    if user_id and company_id:
+        # Fetch tasks related to the logged-in user
+        tasks_data = Tasks.objects.filter(emp_emailid=user_id).values('ratings', 'remark', 'sop_id', 'selfratings')
 
-    tasks_data = Tasks.objects.filter(emp_emailid=eid).values('ratings', 'remark', 'sop_id', 'selfratings')
+        # Extract sop_ids from tasks_data
+        sop_ids = [task['sop_id'] for task in tasks_data]
 
-    sop_ids = [task['sop_id'] for task in tasks_data]
-    sop_data = Sop.objects.filter(sop_id__in=sop_ids).values('sop_id', 'type', 's_name', 'sdate')
+        # Fetch SOP data for the extracted sop_ids
+        sop_data = Sop.objects.filter(sop_id__in=sop_ids).values('sop_id', 'type', 's_name', 'sdate')
+        sop_data_dict = {sop['sop_id']: sop for sop in sop_data}
 
-    files_data = Files.objects.filter(sop_id__in=sop_ids).values('file_name')
+        # Fetch files data for the extracted sop_ids
+        files_data = Files.objects.filter(sop_id__in=sop_ids).values('file_name', 'sop_id')
+        sop_files_dict = {}
+        for file in files_data:
+            sop_id = file['sop_id']
+            if sop_id not in sop_files_dict:
+                sop_files_dict[sop_id] = []
+            sop_files_dict[sop_id].append(file['file_name'])
 
-    data = {
-        'tasks': list(tasks_data),
-        'sop': list(sop_data),
-        'files': list(files_data)
-    }
-    return JsonResponse(data, safe=False)
+        # Prepare combined data
+        combined_data = []
+        for task in tasks_data:
+            sop_id = task['sop_id']
+            sop_info = sop_data_dict.get(sop_id, {})
+            files_info = sop_files_dict.get(sop_id, [])
+
+            combined_task = {
+                'ratings': task['ratings'],
+                'remark': task['remark'],
+                'sop_id': sop_id,
+                'selfratings': task['selfratings'],
+                'sop_info': sop_info,
+                'files': files_info
+            }
+            combined_data.append(combined_task)
+
+        return JsonResponse({'data': combined_data}, safe=False)
+    else:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
 
 
 @csrf_exempt
 @require_http_methods(["PUT"])
-def update_selfratings(request, sop_id):
-    try:
-        # Retrieve the task object
-        task = Tasks.objects.get(sop_id = sop_id)
+def UpdateSelfratings(request, sop_id):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
 
-        # Update the ratings field
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    try:
+        # Retrieve the task object that belongs to the logged-in user's company
+        task = Tasks.objects.get(sop_id=sop_id, emp_emailid=user_id)
+
+        # Update the selfratings field
         data = json.loads(request.body)
         self_rating = int(data.get('selfratings'))
         task.selfratings = self_rating
