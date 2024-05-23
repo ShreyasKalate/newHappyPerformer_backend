@@ -22,7 +22,7 @@ class Department(models.Model):
 
 class Employee(models.Model):
     emp_name = models.CharField(max_length=30)
-    emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
+    emp_emailid = models.EmailField(max_length=50, primary_key=True, default='A@gmail.com')
     emp_skills = models.CharField(max_length=150)
     emp_role = models.CharField(max_length=50)
     emp_pwd = models.CharField(max_length=15, default='changeme')
@@ -125,20 +125,16 @@ class Bank_details(models.Model):
 
 
 class Case(models.Model):
+    case_id = models.BigAutoField(primary_key=True)
     create_for = models.CharField(max_length=50)
     case_type = models.CharField(max_length=50)
     case_title = models.TextField()
     case_desc = models.TextField()
-    case_id = models.BigAutoField(primary_key=True)
     case_date = models.DateTimeField(auto_now_add=True)
     case_status = models.CharField(max_length=30, default='New')
-    created_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='P_Id', related_name='created_cases')
+    created_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', related_name='created_cases')
     assigned_to = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='assigned_to', null=True, default=None, related_name='assigned_cases')
-    class Meta:
-        indexes = [
-            models.Index(fields=['created_by'], name='case_created_by_idx'),
-            models.Index(fields=['assigned_to'], name='case_assigned_to_idx'),
-        ]
+
 
 class Certificate(models.Model):
     id = models.BigAutoField(primary_key=True)

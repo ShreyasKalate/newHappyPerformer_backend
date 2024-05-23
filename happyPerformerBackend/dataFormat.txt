@@ -1,0 +1,43 @@
+CreateCase
+{
+    "create_for": "Department B",
+    "case_type": "Type 2",
+    "case_title": "2nd Sample Case Title",
+    "case_desc": "2nd Sample case description"
+}
+
+SopAndPolicies
+{
+    "data": [
+        {
+            "ratings": 7,
+            "remark": "Great",
+            "sop_id": 2,
+            "selfratings": 5,
+            "sop_info": {
+                "sop_id": 2,
+                "type": "SOP",
+                "s_name": "sop policy testing file",
+                "sdate": "2024-05-12"
+            },
+            "files": [
+                "sop file dummy"
+            ]
+        },
+        {
+            "ratings": 10,
+            "remark": "me",
+            "sop_id": 5,
+            "selfratings": 2,
+            "sop_info": {
+                "sop_id": 5,
+                "type": "SOP",
+                "s_name": "sop testing 2",
+                "sdate": "2024-05-11"
+            },
+            "files": [
+                "dummy file"
+            ]
+        }
+    ]
+}

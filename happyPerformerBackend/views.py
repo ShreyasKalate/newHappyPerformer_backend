@@ -1,6 +1,6 @@
 import json
 from django.shortcuts import render
-from django.http import HttpResponse , JsonResponse
+from django.http import HttpResponse , JsonResponse, HttpResponseBadRequest
 from .models import *
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -10,6 +10,7 @@ from django.db import transaction
 from django.core import serializers
 from django.db import connection
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 @csrf_exempt
 def Home(request):
@@ -806,3 +807,53 @@ def DisplayTraining(request):
     courses = Courses.objects.filter(c_id=c_id,course_employee__emp_emailid=emp_emailid, course_employee__course_id__c_id=c_id,  course_employee__emp_emailid__d_id__c_id=c_id  ).distinct().values('course_id','course_title', 'thumbnail', 'description')
 
     return JsonResponse(list(courses), safe=False, status=200)
+
+
+@csrf_exempt
+def CreateCase(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            create_for = data.get('create_for')
+            case_type = data.get('case_type')
+            case_title = data.get('case_title')
+            case_desc = data.get('case_desc')
+
+            # Validate required fields
+            if not all([create_for, case_type, case_title, case_desc]):
+                return HttpResponseBadRequest("Missing required fields")
+
+            # Fetch the employee object using the session email ID
+            employee = get_object_or_404(Employee, emp_emailid=user_id)
+
+            # Verify that the employee belongs to the correct company
+            if employee.d_id.c_id.c_id != company_id:
+                return HttpResponseBadRequest("Unauthorized access")
+
+            # Create a new case object
+            new_case = Case(
+                create_for=create_for,
+                case_type=case_type,
+                case_title=case_title,
+                case_desc=case_desc,
+                created_by=employee,
+                case_status='New'
+            )
+
+            new_case.save()
+
+            return JsonResponse({"message": "Case created successfully"}, status=201)
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest("Invalid JSON")
+        except Employee.DoesNotExist:
+            return HttpResponseBadRequest("Employee not found")
+    else:
+        return HttpResponseBadRequest("Only POST requests are allowed")
+
