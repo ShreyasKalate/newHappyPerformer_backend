@@ -40,7 +40,6 @@ def Login(request):
             return JsonResponse({'message': 'User already logged in'}, status=200)
 
         data = json.loads(request.body)
-
         emp_emailid = data.get('emp_emailid')
         emp_pwd = data.get('emp_pwd')
 
@@ -53,8 +52,8 @@ def Login(request):
             request.session['user_id'] = user.emp_emailid
             request.session['emp_name'] = user.emp_name
             request.session['emp_emailid'] = user.emp_emailid
+            request.session['emp_role'] = user.emp_role
             request.session['d_id'] = department.d_id
-            request.session['d_name'] = department.d_name
             request.session['c_id'] = company.c_id
             request.session['c_name'] = company.c_name
 
@@ -63,8 +62,8 @@ def Login(request):
                 'user_id': user.emp_emailid,
                 'emp_name': user.emp_name,
                 'emp_emailid': user.emp_emailid,
+                'emp_role': user.emp_role,
                 'd_id': department.d_id,
-                'd_name': department.d_name,
                 'c_id': company.c_id,
                 'c_name': company.c_name,
             }
@@ -72,7 +71,7 @@ def Login(request):
             return JsonResponse(response_data, status=200)
 
         except Employee.DoesNotExist:
-            return JsonResponse({'error': 'Invalid credentials'}, status=401)
+            return JsonResponse({'error': 'Invalid username or password'}, status=401)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
@@ -127,8 +126,14 @@ def EmployeeMaster(request):
     company_id = request.session.get('c_id')
 
     if user_id and company_id:
+        user_role = Employee.objects.get(emp_emailid=user_id).emp_role
+
+        # Check if user is allowed to access EmployeeMaster
+        if user_role not in ['HR', 'Manager', 'Super Manager']:
+            return JsonResponse({'error': 'Access forbidden'}, status=403)
+
         employees = Employee.objects.filter(d_id__c_id=company_id).values(
-            'emp_name', 'emp_emailid', 'emp_phone', 'd_id',  'd_id__d_name'
+            'emp_name', 'emp_emailid', 'emp_phone', 'emp_role' , 'd_id'
             )
 
         data = {
@@ -140,6 +145,7 @@ def EmployeeMaster(request):
         return JsonResponse({'error': 'User not logged in'}, status=401)
 
 
+# need to complete this view and add session
 @csrf_exempt
 def Profile(request, id):
     try:
@@ -154,23 +160,18 @@ def Profile(request, id):
 
 @csrf_exempt
 def SopAndPolicies(request):
-    # Get user ID and company ID from session
+
     user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
 
-    # Check if user is logged in
     if user_id and company_id:
-        # Fetch tasks related to the logged-in user
         tasks_data = Tasks.objects.filter(emp_emailid=user_id).values('ratings', 'remark', 'sop_id', 'selfratings')
 
-        # Extract sop_ids from tasks_data
         sop_ids = [task['sop_id'] for task in tasks_data]
 
-        # Fetch SOP data for the extracted sop_ids
         sop_data = Sop.objects.filter(sop_id__in=sop_ids).values('sop_id', 'type', 's_name', 'sdate')
         sop_data_dict = {sop['sop_id']: sop for sop in sop_data}
 
-        # Fetch files data for the extracted sop_ids
         files_data = Files.objects.filter(sop_id__in=sop_ids).values('file_name', 'sop_id')
         sop_files_dict = {}
         for file in files_data:
@@ -229,27 +230,33 @@ def UpdateSelfratings(request, sop_id):
 
 @csrf_exempt
 def AddCourses(request):
+    # Retrieve session data
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
     if request.method == 'POST':
         try:
-            if request.content_type == 'application/json':
-                data = json.loads(request.body)
-                course_title = data.get('course_title')
-                description = data.get('description')
-                # thumbnail = request.FILES.get('thumbnail')
-            else:
-                # Handle form data or file uploads
-                course_title = request.POST.get('course_title')
-                description = request.POST.get('description')
-                # thumbnail = request.FILES.get('thumbnail')
+            course_title = request.POST.get('course_title')
+            description = request.POST.get('description')
+            thumbnail = request.FILES.get('thumbnail')
 
+            # Validate required fields
+            if not all([course_title, description, thumbnail]):
+                return HttpResponseBadRequest("Missing required fields")
+
+            company = get_object_or_404(Company, pk=company_id)
+            # c_name = company.c_name
+
+            # Create a new course
             course = Courses.objects.create(
                 course_title=course_title,
                 description=description,
-                thumbnail='demo',
-                # Hardcoded c_id and c_name for now
-                c_id=81,
-                # Need to fetch comany name from the company
-                c_name='Some Name'
+                thumbnail=thumbnail,
+                c_id=company,
+                c_name=company.c_name
             )
 
             response_data = {
@@ -257,9 +264,9 @@ def AddCourses(request):
                 'course_id': course.course_id
             }
 
-            return JsonResponse({'message': 'Course added successfully', 'course_id': course.course_id}, status=201)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+            return JsonResponse(response_data, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 

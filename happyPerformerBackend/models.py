@@ -1,4 +1,5 @@
 from django.db import models
+from .validators import validate_image_extension
 
 class Company(models.Model):
     c_id = models.BigAutoField(primary_key=True)
@@ -191,9 +192,12 @@ class Courses(models.Model):
     course_id = models.BigAutoField(primary_key=True)
     course_title = models.CharField(max_length=25)
     description = models.CharField(max_length=500)
-    thumbnail = models.CharField(max_length=500)
+    thumbnail = models.ImageField(upload_to='thumbnails/', validators=[validate_image_extension])
     c_name = models.CharField(max_length=30)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
+
+    def __str__(self):
+        return self.course_title
 
 class Course_employee(models.Model):
     id = models.BigAutoField(primary_key=True)
