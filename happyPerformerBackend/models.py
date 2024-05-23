@@ -485,13 +485,13 @@ class Leavecounttemp(models.Model):
     lopleave = models.IntegerField(default=365)
     earnedleave = models.IntegerField()
 
-
 class Leavetype(models.Model):
     id = models.AutoField(primary_key=True)
     LeaveType = models.CharField(max_length=200, null=True)
     Description = models.TextField(null=True)
     Limit = models.IntegerField(default=0)
     CreationDate = models.DateTimeField(auto_now_add=True)
+    company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='leave_types')
 
 class Leave_encashment(models.Model):
     LE_id = models.BigAutoField(primary_key=True)
@@ -587,10 +587,10 @@ class Passport(models.Model):
 
 class Pdf(models.Model):
     pdf_id = models.BigAutoField(primary_key=True)
-    pdf_name = models.CharField(max_length=100)
-    location = models.CharField(max_length=100)
-    course_id = models.IntegerField()
-    descr = models.CharField(max_length=100)
+    pdf_name = models.CharField(max_length=255)
+    location = models.CharField(max_length=255)
+    descr = models.TextField()
+    course = models.ForeignKey('Courses', on_delete=models.CASCADE)
 
 class Personal_details(models.Model):
     first_name = models.CharField(max_length=50, null=True, blank=True)

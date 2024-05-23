@@ -12,6 +12,8 @@ from django.db import connection
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from .decorators import role_required
 
 @csrf_exempt
 def Home(request):
@@ -125,28 +127,22 @@ def Register(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def EmployeeMaster(request):
-    user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
 
-    if user_id and company_id:
-        user_role = Employee.objects.get(emp_emailid=user_id).emp_role
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        # Check if user is allowed to access EmployeeMaster
-        if user_role not in ['HR', 'Manager', 'Super Manager']:
-            return JsonResponse({'error': 'Access forbidden'}, status=403)
+    employees = Employee.objects.filter(d_id__c_id=company_id).values(
+        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id'
+    )
 
-        employees = Employee.objects.filter(d_id__c_id=company_id).values(
-            'emp_name', 'emp_emailid', 'emp_phone', 'emp_role' , 'd_id'
-            )
+    data = {
+        'employees': list(employees)
+    }
 
-        data = {
-            'employees': list(employees)
-        }
-
-        return JsonResponse(data)
-    else:
-        return JsonResponse({'error': 'User not logged in'}, status=401)
+    return JsonResponse(data)
 
 
 # need to complete this view and add session
@@ -164,7 +160,7 @@ def Profile(request, id):
 
 @csrf_exempt
 def SopAndPolicies(request):
-    # sop and policies display page. to be visible to everyone 
+    # sop and policies display page. to be visible to everyone
     user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
 
@@ -184,7 +180,6 @@ def SopAndPolicies(request):
                 sop_files_dict[sop_id] = []
             sop_files_dict[sop_id].append(file['file_name'])
 
-        # Prepare combined data
         combined_data = []
         for task in tasks_data:
             sop_id = task['sop_id']
@@ -216,7 +211,6 @@ def UpdateSelfratings(request, sop_id):
         return JsonResponse({'error': 'User not logged in'}, status=401)
 
     try:
-        # Retrieve the task object that belongs to the logged-in user's company
         task = Tasks.objects.get(sop_id=sop_id, emp_emailid=user_id)
 
         # Update the selfratings field
@@ -233,8 +227,8 @@ def UpdateSelfratings(request, sop_id):
 
 
 @csrf_exempt
+@role_required(['Super Manager', 'Manager', 'HR'])
 def AddCourses(request):
-    # Retrieve session data
     user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
 
@@ -254,7 +248,6 @@ def AddCourses(request):
             company = get_object_or_404(Company, pk=company_id)
             # c_name = company.c_name
 
-            # Create a new course
             course = Courses.objects.create(
                 course_title=course_title,
                 description=description,
@@ -276,7 +269,13 @@ def AddCourses(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def UploadMedia(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -299,26 +298,42 @@ def UploadMedia(request):
             return JsonResponse({'message': 'Video added successfully'}, status=201)
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def UploadPdf(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
     if request.method == 'POST':
         try:
             pdf_file = request.FILES.get('pdf_file')
-            pdf_name=pdf_file.name
             pdf_description = request.POST.get('pdf_description')
             course_id = request.POST.get('course_id')
 
-            # Create a new PDF object
+            if not pdf_file or not pdf_description or not course_id:
+                return HttpResponseBadRequest("Missing required fields")
+
+            course = get_object_or_404(Courses, pk=course_id)
+
+            # Save the PDF file to the 'pdfs/' directory inside MEDIA_ROOT
+            pdf_path = f'pdfs/{pdf_file.name}'
+            with open(f'{settings.MEDIA_ROOT}/{pdf_path}', 'wb+') as destination:
+                for chunk in pdf_file.chunks():
+                    destination.write(chunk)
+
             pdf = Pdf.objects.create(
-                # pdf_file=pdf_file,
-                pdf_name=pdf_name,
-                location=pdf_name,
+                pdf_name=pdf_file.name,
+                location=pdf_path,
                 descr=pdf_description,
-                course_id=course_id
+                course=course
             )
 
             return JsonResponse({'message': 'PDF uploaded successfully'}, status=201)
@@ -329,32 +344,58 @@ def UploadPdf(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def AddMediaContent(request):
-    # Get the company id (c_id and email from session)
-    # Hardcoded values as of now
-    c_id = 1
-    courses_data = Courses.objects.filter(c_id=c_id).values('course_title', 'course_id')
+    company_id = request.session.get('c_id')
 
-    data = list(courses_data)
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-    return JsonResponse(data, safe=False)
+    if request.method == 'GET':
+        c_id = request.session.get('c_id')
+
+        if not c_id:
+            return JsonResponse({'error': 'Company ID not found in session'}, status=400)
+
+        courses_data = Courses.objects.filter(c_id=c_id).values('course_title', 'course_id')
+        data = list(courses_data)
+
+        return JsonResponse(data, safe=False)
+    else:
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def UpdateDeleteMedia(request):
-    # Get the company id (c_id and email from session)
-    # Hardcoded values as of now
-    c_id = 1
-    courses_data = Courses.objects.filter(c_id=c_id).values('course_title', 'description', 'course_id')
-    data = list(courses_data)
-    return JsonResponse(data, safe=False)
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        courses_data = Courses.objects.filter(c_id=company_id).values('course_title', 'description', 'course_id')
+        data = list(courses_data)
+        return JsonResponse(data, safe=False)
+    else:
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def UpdateMedia(request, course_id):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    try:
+        course = Courses.objects.get(course_id=course_id, c_id=company_id)
+    except Courses.DoesNotExist:
+        return JsonResponse({'error': 'Course not found or you do not have permission to access it'}, status=404)
+
     if request.method == 'GET':
         try:
-            course = Courses.objects.get(course_id=course_id)
             videos = Video.objects.filter(course_id=course_id).values('video_id', 'location', 'descr')
 
             course_data = {
@@ -363,8 +404,6 @@ def UpdateMedia(request, course_id):
                 'videos': list(videos)
             }
             return JsonResponse(course_data, safe=False)
-        except Courses.DoesNotExist:
-            return JsonResponse({'error': 'Course not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
@@ -407,13 +446,16 @@ def UpdateMedia(request, course_id):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def EmployeeDetails(request):
-    # Hardcoded company ID for now
-    c_id = 81
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
         try:
-            departments = Department.objects.filter(c_id=c_id).values('d_name', 'd_id')
+            departments = Department.objects.filter(c_id=company_id).values('d_name', 'd_id')
             dept_id = [d['d_id'] for d in departments]
             employees = Employee.objects.filter(d_id__in=dept_id).values('emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role')
             data = {
@@ -439,13 +481,14 @@ def EmployeeDetails(request):
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
 
-from django.http import JsonResponse
-
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def AttendanceDetails(request):
-    # Hardcoded company ID for now
-    c_id = 81
+    c_id = request.session.get('c_id')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
         try:
@@ -485,9 +528,12 @@ def AttendanceDetails(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def LeaveDashboard(request):
-    # Need to fetch company id. Hardcoded as of now
-    company_id = 81
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
         departments = Department.objects.filter(c_id=company_id)
@@ -523,6 +569,7 @@ def LeaveDashboard(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def LeaveDetails(request):
     if request.method == 'GET':
         try:
@@ -530,20 +577,23 @@ def LeaveDetails(request):
             if not leave_id:
                 return JsonResponse({'error': 'Leave ID is required'}, status=400)
 
+            company_id = request.session.get('c_id')
+
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
             leave_dict = Tblleaves.objects.filter(id=leave_id).values(
                 'id', 'LeaveType', 'ToDate', 'FromDate', 'Description', 'PostingDate', 'Status',
                 'AdminRemark', 'AdminRemarkDate', 'emp_emailid__emp_name', 'emp_emailid__emp_phone',
-                'emp_emailid__d_id', 'emp_emailid__emp_role'
+                'emp_emailid__d_id__c_id', 'emp_emailid__emp_role'
             ).first()
 
             if not leave_dict:
                 return JsonResponse({'error': 'Leave not found'}, status=404)
 
-            # Check if the user is associated with the company that the leave belongs to
-            # add this to leave_dict values=> 'emp_emailid__d_id__c_id',
-            # user_company_id = request.user.profile.company_id
-            # if leave_details['emp_emailid__d_id__c_id'] != user_company_id:
-            #     return JsonResponse({'error': 'You are not authorized to view this leave details'}, status=403)
+            user_company_id = request.session.get('c_id')
+            if leave_dict['emp_emailid__d_id__c_id'] != user_company_id:
+                return JsonResponse({'error': 'You are not authorized to view this leave details'}, status=403)
 
             leave_dict['emp_emailid__emp_name'] = leave_dict['emp_emailid__emp_name'].strip()
             leave_dict['PostingDate'] = leave_dict['PostingDate'].isoformat()
@@ -557,42 +607,50 @@ def LeaveDetails(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def ManageLeaveType(request):
     if request.method == 'GET':
-        leavetypes = Leavetype.objects.all()
-        leavetypes_list = []
+        try:
+            company_id = request.session.get('c_id')
 
-        for leavetype in leavetypes:
-            leavetype_dict = {
-                'id': leavetype.id,
-                'LeaveType': leavetype.LeaveType,
-                'Description': leavetype.Description,
-                'Limit': leavetype.Limit,
-                'CreationDate': leavetype.CreationDate.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            leavetypes_list.append(leavetype_dict)
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        return JsonResponse(leavetypes_list, safe=False)
+            leavetypes = Leavetype.objects.filter(company_id=company_id)
+            leavetypes_list = []
 
-    # uncommment this create a new leave type
-    # elif request.method == 'POST':
-    #     try:
-    #         data = json.loads(request.body)
-    #         leavetype = Leavetype.objects.create(
-    #             LeaveType=data['LeaveType'],
-    #             Description=data['Description'],
-    #             Limit=data['Limit'],
-    #             # CreationDate will be auto-generated
-    #         )
-    #         return JsonResponse({'message': 'Leave Type created successfully'}, status=201)
-    #     except Exception as e:
-    #         return JsonResponse({'error': str(e)}, status=500)
+            for leavetype in leavetypes:
+                leavetype_dict = {
+                    'id': leavetype.id,
+                    'LeaveType': leavetype.LeaveType,
+                    'Description': leavetype.Description,
+                    'Limit': leavetype.Limit,
+                    'CreationDate': leavetype.CreationDate.strftime('%Y-%m-%d %H:%M:%S')
+                }
+                leavetypes_list.append(leavetype_dict)
+
+            return JsonResponse(leavetypes_list, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            leavetype = Leavetype.objects.create(
+                LeaveType=data['LeaveType'],
+                Description=data['Description'],
+                Limit=data['Limit'],
+                company_id=request.session.get('c_id')
+            )
+            return JsonResponse({'message': 'Leave Type created successfully'}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
     elif request.method == 'DELETE':
         try:
             leave_id = request.GET.get('id')
             if leave_id:
-                leavetype = Leavetype.objects.get(id=leave_id)
+                leavetype = Leavetype.objects.get(id=leave_id, company_id=request.session.get('c_id'))
                 leavetype.delete()
                 return JsonResponse({'message': 'Leave Type deleted successfully'})
             else:
@@ -607,29 +665,46 @@ def ManageLeaveType(request):
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def EditLeaveType(request, id):
     if request.method == 'GET':
-        leavetype = Leavetype.objects.get(id=id)
-        leavetype_data = {
+        try:
+            leavetype = Leavetype.objects.get(id=id)
+
+            company_id = request.session.get('c_id')
+            if not company_id or leavetype.company_id != company_id:
+                return JsonResponse({'error': 'Leave Type not found'}, status=404)
+
+            leavetype_data = {
                 'LeaveType': leavetype.LeaveType,
                 'Description': leavetype.Description,
                 'Limit': leavetype.Limit,
             }
-        print(leavetype_data)
-        return JsonResponse(leavetype_data, safe=False)
+
+            return JsonResponse(leavetype_data, safe=False)
+        except Leavetype.DoesNotExist:
+            return JsonResponse({'error': 'Leave Type not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
     elif request.method == 'PUT':
         try:
             data = json.loads(request.body)
             leavetype = Leavetype.objects.get(id=id)
+
+            company_id = request.session.get('c_id')
+            if not company_id or leavetype.company_id != company_id:
+                return JsonResponse({'error': 'Leave Type not found'}, status=404)
+
             if 'LeaveType' in data:
                 leavetype.LeaveType = data['LeaveType']
             if 'Description' in data:
                 leavetype.Description = data['Description']
             if 'Limit' in data:
                 leavetype.Limit = data['Limit']
-            print(data)
+
             leavetype.save()
+
             return JsonResponse({'message': 'Leave Type updated successfully'}, status=200)
         except Leavetype.DoesNotExist:
             return JsonResponse({'error': 'Leave Type not found'}, status=404)
@@ -640,144 +715,173 @@ def EditLeaveType(request, id):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def Leaves(request):
-    # Need to fetch company id. Hardcoded as of now
-    company_id = 82
-
     if request.method == 'GET':
-        departments = Department.objects.filter(c_id=company_id)
-        dptcount = departments.count()
-        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
-        empcount = employees.count()
-        leavtypcount = Leavetype.objects.count()
+        try:
+            company_id = request.session.get('c_id')
 
-        emp_emails = [e['emp_emailid'] for e in employees]
-        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails).order_by('-id')
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        leaves_data = []
-        for leave in leaves_fetched:
-            leave_dict = {
-                'lid': leave.id,
-                'emp_name': leave.emp_emailid.emp_name,
-                'emp_emailid': leave.emp_emailid.emp_emailid,
-                'LeaveType': leave.LeaveType_id,
-                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
-                'Status': leave.Status,
+            departments = Department.objects.filter(c_id=company_id)
+            dptcount = departments.count()
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+            empcount = employees.count()
+
+            leavtypcount = Leavetype.objects.count()
+
+            emp_emails = [e['emp_emailid'] for e in employees]
+            leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails).order_by('-id')
+
+            leaves_data = []
+            for leave in leaves_fetched:
+                leave_dict = {
+                    'lid': leave.id,
+                    'emp_name': leave.emp_emailid.emp_name,
+                    'emp_emailid': leave.emp_emailid.emp_emailid,
+                    'LeaveType': leave.LeaveType_id,
+                    'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                    'Status': leave.Status,
+                }
+                leaves_data.append(leave_dict)
+
+            response_data = {
+                'empcount': empcount,
+                'dptcount': dptcount,
+                'leavtypcount': leavtypcount,
+                'leaves_fetched': leaves_data,
             }
-            leaves_data.append(leave_dict)
-
-        response_data = {
-            'empcount': empcount,
-            'dptcount': dptcount,
-            'leavtypcount': leavtypcount,
-            'leaves_fetched': leaves_data,
-        }
-        return JsonResponse(response_data, safe=False)
+            return JsonResponse(response_data, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def PendingLeaves(request):
-     # Need to fetch company id. Hardcoded as of now
-    company_id = 81
-
     if request.method == 'GET':
-        departments = Department.objects.filter(c_id=company_id)
-        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+        try:
+            company_id = request.session.get('c_id')
 
-        emp_emails = [e['emp_emailid'] for e in employees]
-        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=0).order_by('-id')
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        leaves_data = []
-        for leave in leaves_fetched:
-            leave_dict = {
-                'lid': leave.id,
-                'emp_name': leave.emp_emailid.emp_name,
-                'emp_emailid': leave.emp_emailid.emp_emailid,
-                'LeaveType': leave.LeaveType_id,
-                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
-                'Status': leave.Status,
+            departments = Department.objects.filter(c_id=company_id)
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+            emp_emails = [e['emp_emailid'] for e in employees]
+            leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=0).order_by('-id')
+
+            leaves_data = []
+            for leave in leaves_fetched:
+                leave_dict = {
+                    'lid': leave.id,
+                    'emp_name': leave.emp_emailid.emp_name,
+                    'emp_emailid': leave.emp_emailid.emp_emailid,
+                    'LeaveType': leave.LeaveType_id,
+                    'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                    'Status': leave.Status,
+                }
+                leaves_data.append(leave_dict)
+
+            response_data = {
+                'leaves_fetched': leaves_data
             }
-            leaves_data.append(leave_dict)
-
-        response_data = {
-            'leaves_fetched': leaves_data
-        }
-        return JsonResponse(response_data, safe=False)
+            return JsonResponse(response_data, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def ApprovedLeaves(request):
-     # Need to fetch company id. Hardcoded as of now
-    company_id = 82
-
     if request.method == 'GET':
-        departments = Department.objects.filter(c_id=company_id)
-        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+        try:
+            company_id = request.session.get('c_id')
 
-        emp_emails = [e['emp_emailid'] for e in employees]
-        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=1).order_by('-id')
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        leaves_data = []
-        for leave in leaves_fetched:
-            leave_dict = {
-                'lid': leave.id,
-                'emp_name': leave.emp_emailid.emp_name,
-                'emp_emailid': leave.emp_emailid.emp_emailid,
-                'LeaveType': leave.LeaveType_id,
-                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
-                'Status': leave.Status,
+            departments = Department.objects.filter(c_id=company_id)
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+            emp_emails = [e['emp_emailid'] for e in employees]
+            leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=1).order_by('-id')
+
+            leaves_data = []
+            for leave in leaves_fetched:
+                leave_dict = {
+                    'lid': leave.id,
+                    'emp_name': leave.emp_emailid.emp_name,
+                    'emp_emailid': leave.emp_emailid.emp_emailid,
+                    'LeaveType': leave.LeaveType_id,
+                    'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                    'Status': leave.Status,
+                }
+                leaves_data.append(leave_dict)
+
+            response_data = {
+                'leaves_fetched': leaves_data
             }
-            leaves_data.append(leave_dict)
-
-        response_data = {
-            'leaves_fetched': leaves_data
-        }
-        return JsonResponse(response_data, safe=False)
+            return JsonResponse(response_data, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def RejectedLeaves(request):
-     # Need to fetch company id. Hardcoded as of now
-    company_id = 81
-
     if request.method == 'GET':
-        departments = Department.objects.filter(c_id=company_id)
-        employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+        try:
+            company_id = request.session.get('c_id')
 
-        emp_emails = [e['emp_emailid'] for e in employees]
-        leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=2).order_by('-id')
+            if not company_id:
+                return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-        leaves_data = []
-        for leave in leaves_fetched:
-            leave_dict = {
-                'lid': leave.id,
-                'emp_name': leave.emp_emailid.emp_name,
-                'emp_emailid': leave.emp_emailid.emp_emailid,
-                'LeaveType': leave.LeaveType_id,
-                'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
-                'Status': leave.Status,
+            departments = Department.objects.filter(c_id=company_id)
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+
+            emp_emails = [e['emp_emailid'] for e in employees]
+            leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails, Status=2).order_by('-id')
+
+            leaves_data = []
+            for leave in leaves_fetched:
+                leave_dict = {
+                    'lid': leave.id,
+                    'emp_name': leave.emp_emailid.emp_name,
+                    'emp_emailid': leave.emp_emailid.emp_emailid,
+                    'LeaveType': leave.LeaveType_id,
+                    'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
+                    'Status': leave.Status,
+                }
+                leaves_data.append(leave_dict)
+
+            response_data = {
+                'leaves_fetched': leaves_data
             }
-            leaves_data.append(leave_dict)
-
-        response_data = {
-            'leaves_fetched': leaves_data
-        }
-        return JsonResponse(response_data, safe=False)
+            return JsonResponse(response_data, safe=False)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def ResignationView(request):
-    # Need to fetch company id. Hardcoded as of now
-    c_id = 81
+    c_id = request.session.get('c_id')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
         departments = Department.objects.filter(c_id=c_id)
@@ -811,13 +915,21 @@ def ResignationView(request):
 
 @csrf_exempt
 def DisplayTraining(request):
-    # Need to fetch company id and email. Hardcoded as of now
-    c_id = 81
-    emp_emailid = "abc@gmail.com"
+    c_id = request.session.get('c_id')
+    emp_emailid = request.session.get('emp_emailid')
 
-    courses = Courses.objects.filter(c_id=c_id,course_employee__emp_emailid=emp_emailid, course_employee__course_id__c_id=c_id,  course_employee__emp_emailid__d_id__c_id=c_id  ).distinct().values('course_id','course_title', 'thumbnail', 'description')
+    if not c_id or not emp_emailid:
+        return JsonResponse({'error': 'Company ID or Employee Email not found in session'}, status=401)
 
-    return JsonResponse(list(courses), safe=False, status=200)
+    if request.method == 'GET':
+        courses = Courses.objects.filter(c_id=c_id, course_employee__emp_emailid=emp_emailid,
+                                         course_employee__course_id__c_id=c_id,
+                                         course_employee__emp_emailid__d_id__c_id=c_id).distinct().values(
+                                            'course_id','course_title', 'thumbnail', 'description')
+
+        return JsonResponse(list(courses), safe=False, status=200)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
@@ -837,15 +949,12 @@ def CreateCase(request):
             case_title = data.get('case_title')
             case_desc = data.get('case_desc')
 
-            # Validate required fields
             if not all([create_for, case_type, case_title, case_desc]):
                 return HttpResponseBadRequest("Missing required fields")
 
-            # Fetch the employee object using the session email ID
             employee = get_object_or_404(Employee, emp_emailid=user_id)
 
-            # Verify that the employee belongs to the correct company
-            if employee.d_id.c_id.c_id != company_id:
+            if employee.d_id.c_id.id != company_id:
                 return HttpResponseBadRequest("Unauthorized access")
 
             # Create a new case object
@@ -867,4 +976,3 @@ def CreateCase(request):
             return HttpResponseBadRequest("Employee not found")
     else:
         return HttpResponseBadRequest("Only POST requests are allowed")
-
