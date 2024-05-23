@@ -11,6 +11,7 @@ from django.core import serializers
 from django.db import connection
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.conf import settings
 
 @csrf_exempt
 def Home(request):
@@ -57,6 +58,8 @@ def Login(request):
             request.session['c_id'] = company.c_id
             request.session['c_name'] = company.c_name
 
+            profile_url = settings.MEDIA_URL + str(user.emp_profile) if user.emp_profile else None
+
             response_data = {
                 'message': 'Login successful',
                 'user_id': user.emp_emailid,
@@ -66,6 +69,7 @@ def Login(request):
                 'd_id': department.d_id,
                 'c_id': company.c_id,
                 'c_name': company.c_name,
+                'profile_url': profile_url,
             }
 
             return JsonResponse(response_data, status=200)
@@ -160,7 +164,7 @@ def Profile(request, id):
 
 @csrf_exempt
 def SopAndPolicies(request):
-
+    # sop and policies display page. to be visible to everyone 
     user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
 

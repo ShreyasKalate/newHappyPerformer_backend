@@ -28,7 +28,7 @@ class Employee(models.Model):
     emp_role = models.CharField(max_length=50)
     emp_pwd = models.CharField(max_length=15, default='changeme')
     emp_phone = models.CharField(max_length=11)
-    emp_profile = models.CharField(max_length=100, default='profile.png')
+    emp_profile = models.ImageField(upload_to='profile/', validators=[validate_image_extension], default='profile.png')
     add_date = models.CharField(max_length=200, null=True, default=None)
     pay_sts = models.CharField(max_length=200, null=True, default=None)
     Status = models.CharField(max_length=8, default='Active')
