@@ -139,9 +139,9 @@ class Case(models.Model):
 
 class Certificate(models.Model):
     id = models.BigAutoField(primary_key=True)
-    Email_id = models.CharField(max_length=50)
     en_no = models.CharField(max_length=50)
-    course_title = models.CharField(max_length=50)
+    course_title = models.ForeignKey('Courses', on_delete=models.CASCADE)
+    email_id = models.ForeignKey('Employee', on_delete=models.CASCADE)
 
 
 class Chat(models.Model):
@@ -204,8 +204,8 @@ class Course_employee(models.Model):
     status = models.IntegerField()
     Start_date = models.DateTimeField(auto_now_add=True)
     course_title = models.CharField(max_length=25,default=None)
-    course_id = models.ForeignKey('Courses', on_delete=models.CASCADE, db_column='course_id', default=None)
-    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
+    course_id = models.ForeignKey('Courses', on_delete=models.CASCADE, db_column='course_id')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
 
 class Custom_forms(models.Model):
@@ -304,14 +304,9 @@ class Faqs(models.Model):
     faq_id = models.BigAutoField(primary_key=True)
     question = models.CharField(max_length=500)
     answer = models.CharField(max_length=1000, null=True, default=None)
-    emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE, db_column='emp_emailid', related_name='faqs_created')
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', related_name='faqs_created')
     imp = models.BooleanField(default=False)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id', related_name='faqs')
-    class Meta:
-        indexes = [
-            models.Index(fields=['emp_emailid'], name='faqs_emp_emailid'),
-            models.Index(fields=['c_id'], name='faqs_c_id'),
-        ]
 
 class Feedback(models.Model):
     fid = models.BigAutoField(primary_key=True)

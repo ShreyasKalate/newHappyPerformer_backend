@@ -6,6 +6,65 @@ CreateCase
     "case_desc": "2nd Sample case description"
 }
 
+MyCases
+{
+    "cases": [
+        {
+            "case_id": 3,
+            "create_for": "Department C",
+            "case_title": "3nd Sample Case Title",
+            "case_type": "Type 3",
+            "case_date": "Today",
+            "assigned_to": "Not Assigned",
+            "case_status": "New"
+        }
+    ]
+}
+
+faqs view (management section)
+{
+    "faqs": [
+        {
+            "faq_id": 2,
+            "question": "What never asks a question but gets answered all the time?",
+            "answer": "cellphone",
+            "emp_emailid": "lose@gmail.com",
+            "imp": true
+        }
+    ]
+}
+
+Enroll Employee (management section)
+get requests=>
+{
+    "courses": [
+        {
+            "course_title": "prathemsh"
+        },
+        {
+            "course_title": "Testing course"
+        }
+    ],
+    "employees": [
+        {
+            "emp_emailid": "p@gmail.com"
+        },
+        {
+            "emp_emailid": "lose@gmail.com"
+        },
+        {
+            "emp_emailid": "pb@gmail.com"
+        }
+    ]
+}
+post requests=>
+{
+    "course_id": 12,
+    "course_title": "Testing course",
+    "emp_emailid":"abhi@gmail.com"
+}
+
+
 SopAndPolicies
 {
     "data": [
@@ -41,3 +100,4 @@ SopAndPolicies
         }
     ]
 }
+

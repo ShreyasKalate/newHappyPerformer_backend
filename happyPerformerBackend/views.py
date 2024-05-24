@@ -10,10 +10,12 @@ from django.db import transaction
 from django.core import serializers
 from django.db import connection
 from django.utils import timezone
+from datetime import datetime
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from .decorators import role_required
+from django.db.models import Q
 
 @csrf_exempt
 def Home(request):
@@ -59,6 +61,8 @@ def Login(request):
             request.session['d_id'] = department.d_id
             request.session['c_id'] = company.c_id
             request.session['c_name'] = company.c_name
+
+            request.session.save()
 
             profile_url = settings.MEDIA_URL + str(user.emp_profile) if user.emp_profile else None
 
@@ -934,11 +938,11 @@ def DisplayTraining(request):
 
 @csrf_exempt
 def CreateCase(request):
-    user_id = request.session.get('user_id')
-    company_id = request.session.get('c_id')
+    # user_id = request.session.get('user_id')
+    # company_id = request.session.get('c_id')
 
-    if not user_id or not company_id:
-        return JsonResponse({'error': 'User not logged in'}, status=401)
+    # if not user_id or not company_id:
+    #     return JsonResponse({'error': 'User not logged in'}, status=401)
 
     if request.method == 'POST':
         try:
@@ -949,15 +953,14 @@ def CreateCase(request):
             case_title = data.get('case_title')
             case_desc = data.get('case_desc')
 
-            if not all([create_for, case_type, case_title, case_desc]):
-                return HttpResponseBadRequest("Missing required fields")
-
+            # if not all([create_for, case_type, case_title, case_desc]):
+                # return HttpResponseBadRequest("Missing required fields")
+            user_id = "abhi@gmail.com"
             employee = get_object_or_404(Employee, emp_emailid=user_id)
 
-            if employee.d_id.c_id.id != company_id:
-                return HttpResponseBadRequest("Unauthorized access")
+            # if employee.d_id.c_id.id != company_id:
+                # return HttpResponseBadRequest("Unauthorized access")
 
-            # Create a new case object
             new_case = Case(
                 create_for=create_for,
                 case_type=case_type,
@@ -976,3 +979,157 @@ def CreateCase(request):
             return HttpResponseBadRequest("Employee not found")
     else:
         return HttpResponseBadRequest("Only POST requests are allowed")
+
+
+# check login thing
+@csrf_exempt
+def MyCases(request):
+    def TimeAgo(ptime):
+        current_time = timezone.now()
+        estimate_time = current_time - ptime
+        if estimate_time.days < 1:
+            return 'Today'
+
+        condition = {
+            365: 'year',
+            30: 'month',
+            1: 'day'
+        }
+
+        for secs, unit in condition.items():
+            delta = estimate_time.days // secs
+            if delta > 0:
+                return f"about {delta} {unit}{'s' if delta > 1 else ''} ago"
+
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        print('User not logged in:', request.session.items())
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    cases = Case.objects.filter(Q(created_by__emp_emailid=user_id) | Q(assigned_to__emp_emailid=user_id))
+
+    case_data = []
+    for case in cases:
+        timeago = TimeAgo(case.case_date)
+        assigned_to = "Not Assigned"
+        if case.assigned_to:
+            assigned_to = case.assigned_to.emp_name
+
+        case_data.append({
+            'case_id': case.case_id,
+            'create_for': case.create_for,
+            'case_title': case.case_title,
+            'case_type': case.case_type,
+            'case_date': timeago,
+            'assigned_to': assigned_to,
+            'case_status': case.case_status,
+        })
+
+    return JsonResponse({'cases': case_data})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def FAQManagement(request):
+    c_id = request.session.get('c_id')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            faqs = Faqs.objects.filter(c_id=c_id).values('faq_id', 'question', 'answer', 'emp_emailid', 'imp')
+            data = list(faqs)
+            return JsonResponse({'faqs': data})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    # uncomment if required
+    # elif request.method == 'POST':
+    #     question = request.POST.get('question')
+    #     answer = request.POST.get('answer')
+    #     emp_emailid = request.POST.get('emp_emailid')
+    #     imp = request.POST.get('imp') == 'true'
+
+    #     if not question or not emp_emailid:
+    #         return JsonResponse({'error': 'Question and Employee Email ID are required'}, status=400)
+
+    #     try:
+    #         employee = Employee.objects.get(emp_emailid=emp_emailid)
+    #         faq = Faqs.objects.create(
+    #             question=question,
+    #             answer=answer,
+    #             emp_emailid=employee,
+    #             imp=imp,
+    #             c_id_id=c_id
+    #         )
+    #         return JsonResponse({'message': 'FAQ created successfully', 'faq_id': faq.faq_id})
+    #     except Employee.DoesNotExist:
+    #         return JsonResponse({'error': 'Employee not found'}, status=404)
+    #     except Exception as e:
+    #         return JsonResponse({'error': str(e)}, status=500)
+
+    # uncomment if required
+    # elif request.method == 'DELETE':
+    #     faq_id = request.GET.get('faq_id')
+    #     if not faq_id:
+    #         return JsonResponse({'error': 'FAQ ID is required'}, status=400)
+    #     try:
+    #         faq = Faqs.objects.get(faq_id=faq_id, c_id=c_id)
+    #         faq.delete()
+    #         return JsonResponse({'message': 'FAQ deleted successfully'})
+    #     except Faqs.DoesNotExist:
+    #         return JsonResponse({'error': 'FAQ not found'}, status=404)
+    #     except Exception as e:
+    #         return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EnrollEmployee(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        courses = Courses.objects.filter(c_id=c_id).values('course_id', 'course_title').distinct()
+
+        employees = Employee.objects.filter(d_id__c_id=c_id).values('emp_emailid')
+
+        return JsonResponse({'courses': list(courses), 'employees': list(employees)})
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            course_id = data.get('course_id')
+            course_title = data.get('course_title')
+            emp_emailid = data.get('emp_emailid')
+
+            if not Employee.objects.filter(emp_emailid=emp_emailid, d_id__c_id=c_id).exists():
+                return JsonResponse({'error': 'Employee does not belong to the same company'}, status=400)
+
+            course_company_id = Courses.objects.get(course_id=course_id).c_id_id
+            if course_company_id != c_id:
+                return JsonResponse({'error': 'This course does not belong to your company'}, status=400)
+
+            if Course_employee.objects.filter(course_id=course_id, emp_emailid=emp_emailid).exists():
+                return JsonResponse({'error': 'Employee is already enrolled in this course'}, status=400)
+
+            Course_employee.objects.create(
+                course_id_id=course_id,
+                emp_emailid_id=emp_emailid,
+                status=0,
+                course_title=course_title
+            )
+
+            return JsonResponse({'message': 'Employee enrolled successfully'}, status=201)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)

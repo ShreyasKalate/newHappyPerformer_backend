@@ -33,7 +33,10 @@ urlpatterns = [
     path('RejectedLeaves/', views.RejectedLeaves, name='RejectedLeaves'),
     path('ResignationView/', views.ResignationView, name='ResignationView'),
     path('DisplayTraining/', views.DisplayTraining, name='DisplayTraining'),
-    path('CreateCase/', views.CreateCase, name='CreateCase'),
+    path('CreateCase', views.CreateCase, name='CreateCase'),
+    path('MyCases/', views.MyCases, name='MyCases'),
+    path('faqsview/', views.FAQManagement, name='faq_management'),
+    path('EnrollEmployee', views.EnrollEmployee, name='EnrollEmployee'),
 ]
 
 
