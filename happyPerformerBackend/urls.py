@@ -37,6 +37,9 @@ urlpatterns = [
     path('MyCases/', views.MyCases, name='MyCases'),
     path('faqsview/', views.FAQManagement, name='faq_management'),
     path('EnrollEmployee', views.EnrollEmployee, name='EnrollEmployee'),
+    path('ViewAllEnrollments', views.ViewAllEnrollments, name='ViewAllEnrollments'),
+    path('BankTransferPayout', views.BankTransferPayout, name='BankTransferPayout'),
+    path('BankTransfer', views.BankTransfer, name='BankTransfer'),
 ]
 
 

@@ -741,7 +741,7 @@ class Resp_employee_detail_form(models.Model):
 
 class Salary(models.Model):
     sal_id = models.IntegerField(primary_key=True)
-    id = models.CharField(max_length=50)
+    emp_emailid = models.ForeignKey(Bank_details, on_delete=models.CASCADE, db_column='emp_emailid', default=None)
     payout_month = models.CharField(max_length=50)
     effective_from = models.CharField(max_length=50, null=True, blank=True)
     revision = models.IntegerField(null=True, blank=True)

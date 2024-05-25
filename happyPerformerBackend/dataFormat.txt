@@ -64,6 +64,26 @@ post requests=>
     "emp_emailid":"abhi@gmail.com"
 }
 
+ViewAllEnrollments
+get requests=>
+{
+    "enrollments": [
+        {
+            "id": 4,
+            "course_title": "advvsrgvfx",
+            "emp_emailid": "p@gmail.com"
+        },
+        {
+            "id": 15,
+            "course_title": "Testing course",
+            "emp_emailid": "pb@gmail.com"
+        }
+    ]
+}
+delete requests=>
+{
+    "id":12
+}
 
 SopAndPolicies
 {

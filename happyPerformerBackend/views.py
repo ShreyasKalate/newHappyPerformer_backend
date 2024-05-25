@@ -139,7 +139,7 @@ def EmployeeMaster(request):
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     employees = Employee.objects.filter(d_id__c_id=company_id).values(
-        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id'
+        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id', 'emp_profile'
     )
 
     data = {
@@ -938,11 +938,11 @@ def DisplayTraining(request):
 
 @csrf_exempt
 def CreateCase(request):
-    # user_id = request.session.get('user_id')
-    # company_id = request.session.get('c_id')
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
 
-    # if not user_id or not company_id:
-    #     return JsonResponse({'error': 'User not logged in'}, status=401)
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
 
     if request.method == 'POST':
         try:
@@ -953,13 +953,14 @@ def CreateCase(request):
             case_title = data.get('case_title')
             case_desc = data.get('case_desc')
 
-            # if not all([create_for, case_type, case_title, case_desc]):
-                # return HttpResponseBadRequest("Missing required fields")
-            user_id = "abhi@gmail.com"
+            if not all([create_for, case_type, case_title, case_desc]):
+                return HttpResponseBadRequest("Missing required fields")
+
+            #Testing  # user_id = "abhi@gmail.com"
             employee = get_object_or_404(Employee, emp_emailid=user_id)
 
-            # if employee.d_id.c_id.id != company_id:
-                # return HttpResponseBadRequest("Unauthorized access")
+            if employee.d_id.c_id.id != company_id:
+                return HttpResponseBadRequest("Unauthorized access")
 
             new_case = Case(
                 create_for=create_for,
@@ -1133,3 +1134,110 @@ def EnrollEmployee(request):
 
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def ViewAllEnrollments(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        enrollments = Course_employee.objects.filter(course_id__c_id=c_id).values('id', 'course_title', 'emp_emailid')
+
+        return JsonResponse({'enrollments': list(enrollments)})
+
+    elif request.method == 'DELETE':
+        try:
+            data = json.loads(request.body)
+            id = data.get('id')
+
+            enrollment = Course_employee.objects.get(id=id)
+            enrollment.delete()
+            return JsonResponse({'message': 'Enrollment deleted successfully'}, status=200)
+        except Course_employee.DoesNotExist:
+            return JsonResponse({'error': 'Enrollment not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+# Custom Forms
+# @csrf_exempt
+# @role_required(['HR', 'Manager', 'Super Manager'])
+# def CustomForms(request):
+#     if request.method == 'POST':
+#         new_form_name = request.POST.get('newFormName')
+#         c_id = request.session.get('c_id')
+
+#         if CustomForms.objects.filter(form_name=new_form_name, c_id=c_id).exists():
+#             message = 'Form name already exists!'
+#         else:
+#             CustomForms.objects.create(form_name=new_form_name, c_id=c_id)
+#             message = 'Form created successfully'
+
+#     user_name = request.session.get('user_name')
+#     c_id = request.session.get('c_id')
+
+#     employee = Employee.objects.filter(emp_name=user_name).first()
+
+#     if not employee:
+#         return JsonResponse({'error': 'Employee not found'}, status=404)
+
+#     employee_forms = CustomForms.objects.filter(c_id=c_id)
+
+#     return render(request, 'manage_forms.html', {'employee_forms': employee_forms, 'message': message})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def BankTransferPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        payouts = Salary.objects.filter(paymentmethod='bank').order_by('-payout_month').values('sal_id', 'payout_month').distinct()
+        return JsonResponse({'payouts': list(payouts)})
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def BankTransfer(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        month = request.GET.get('month')
+        if not month:
+            return JsonResponse({'error': 'Month parameter is required'}, status=400)
+
+    try:
+        salaries = Salary.objects.filter(paymentmethod='bank', payout_month=month)
+        total_employees = salaries.count()
+        total_amount = salaries.filter(holdsalary=0, paid=0).aggregate(Sum('Net_Salary'))['Net_Salary__sum'] or 0
+        total_employees_with_errors = salaries.filter(holdsalary=1).count()
+
+        salary_details = salaries.select_related('emp_emailid').values(
+            'sal_id', 'emp_emailid__holder_name', 'emp_emailid__bank_name', 'emp_emailid__branch',
+            'emp_emailid__ifsc', 'emp_emailid__acc_no', 'emp_emailid__acc_type', 'Net_Salary',
+            'holdsalary', 'paid'
+        )
+
+        response_data = {
+            'month': month,
+            'total_employees': total_employees,
+            'total_amount': total_amount,
+            'total_employees_with_errors': total_employees_with_errors,
+            'salary_details': list(salary_details)
+        }
+
+        return JsonResponse(response_data, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
