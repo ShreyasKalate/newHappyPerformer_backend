@@ -41,6 +41,12 @@ urlpatterns = [
     path('BankTransferPayout', views.BankTransferPayout, name='BankTransferPayout'),
     path('BankTransfer', views.BankTransfer, name='BankTransfer'),
     path('BankTransferUpdate', views.BankTransferUpdate, name='BankTransferUpdate'),
+    path('PayslipPayout', views.PayslipPayout, name='PayslipPayout'),
+    path('HomeSalary', views.HomeSalary, name='HomeSalary'),
+    path('HoldSalaryPayout', views.HoldSalaryPayout, name='HoldSalaryPayout'),
+    path('CashChequeTransferPayout', views.CashChequeTransferPayout, name='CashChequeTransferPayout'),
+    path('SalaryRevisionHistory', views.SalaryRevisionHistory, name='SalaryRevisionHistory'),
+    path('DisplaySalaryDetails', views.DisplaySalaryDetails, name='DisplaySalaryDetails'),
 ]
 
 

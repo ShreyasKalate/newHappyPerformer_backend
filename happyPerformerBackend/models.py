@@ -122,7 +122,7 @@ class Bank_details(models.Model):
     acc_type = models.CharField(max_length=150, null=True, default=None)
     ifsc = models.CharField(max_length=50, null=True, default=None)
     Pan_no = models.CharField(max_length=50, null=True, default=None)
-    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None, unique=True)
 
 
 class Case(models.Model):
@@ -741,7 +741,6 @@ class Resp_employee_detail_form(models.Model):
 
 class Salary(models.Model):
     sal_id = models.IntegerField(primary_key=True)
-    emp_emailid = models.ForeignKey(Bank_details, on_delete=models.CASCADE, db_column='emp_emailid', default=None)
     payout_month = models.CharField(max_length=50)
     effective_from = models.CharField(max_length=50, null=True, blank=True)
     revision = models.IntegerField(null=True, blank=True)
@@ -764,6 +763,7 @@ class Salary(models.Model):
     remarks = models.CharField(max_length=50)
     holdsalary = models.IntegerField(default=0)
     paid = models.IntegerField(default=0)
+    emp_emailid = models.ForeignKey('Bank_details', on_delete=models.CASCADE, db_column='emp_emailid', default=None, to_field='emp_emailid')
 
 class Score_final(models.Model):
     id = models.IntegerField(primary_key=True)

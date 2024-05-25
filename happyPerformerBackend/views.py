@@ -1291,3 +1291,168 @@ def BankTransferUpdate(request):
 
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def PayslipPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        payouts = Salary.objects.order_by('-payout_month').values('sal_id', 'payout_month').distinct()
+        return JsonResponse({'payouts': list(payouts)})
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def HomeSalary(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        employees = Employee.objects.filter(d_id__in=Department.objects.filter(c_id=c_id)).values('emp_name', 'emp_emailid', 'emp_role')
+        return JsonResponse({'employees': list(employees)})
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def HoldSalaryPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            payouts = Salary.objects.filter().values('sal_id', 'holdsalary', 'emp_emailid__holder_name', 'emp_emailid__bank_name', 'emp_emailid__branch', 'emp_emailid__ifsc', 'emp_emailid__acc_no').distinct()
+
+            payout_list = []
+            for payout in payouts:
+                payout_dict = {
+                    'sal_id': payout['sal_id'],
+                    'holder_name': payout['emp_emailid__holder_name'],
+                    'bank_name': payout['emp_emailid__bank_name'],
+                    'branch': payout['emp_emailid__branch'],
+                    'ifsc': payout['emp_emailid__ifsc'],
+                    'acc_no': payout['emp_emailid__acc_no'],
+                    'hold_salary': payout['holdsalary']
+                }
+                payout_list.append(payout_dict)
+
+            return JsonResponse({'payouts': payout_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CashChequeTransferPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            payouts = Salary.objects.filter(paymentmethod='cash').order_by('-payout_month').values('sal_id', 'payout_month').distinct()
+
+            payout_list = [{'sal_id': payout['sal_id'], 'payout_month': payout['payout_month']} for payout in payouts]
+
+            return JsonResponse({'payroll_months': payout_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def SalaryRevisionHistory(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        sid = request.GET.get('id')
+        if not sid:
+            return JsonResponse({'error': 'Employee ID not provided'}, status=400)
+
+        try:
+            salaries = Salary.objects.filter(emp_emailid=sid, revision__isnull=False, revision__gt=0)
+
+            salary_list = []
+            for salary in salaries:
+                salary_dict = {
+                    'emp_emailid': salary.emp_emailid,
+                    'revision_percentage': salary.revision,
+                    'effective_from': salary.effective_from,
+                    'basic': salary.basic,
+                    'hra': salary.hra,
+                    'conveyance': salary.conveyance,
+                    'da': salary.da,
+                    'allowance': salary.special_allowance,
+                    'annual_ctc': salary.annual_ctc,
+                    'payment_method': salary.paymentmethod,
+                    'notes': salary.notes,
+                    'remarks': salary.remarks
+                }
+                salary_list.append(salary_dict)
+
+            return JsonResponse({'salaries': salary_list}, status=200)
+
+        except Salary.DoesNotExist:
+            return JsonResponse({'error': 'Salary records not found for the provided employee ID'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def DisplaySalaryDetails(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        sid = request.GET.get('id')
+        if not sid:
+            return JsonResponse({'error': 'Employee ID not provided'}, status=400)
+
+        try:
+            salaries = Salary.objects.filter(emp_emailid=sid)
+
+            salary_list = []
+            for salary in salaries:
+                salary_dict = {
+                    'emp_emailid': salary.emp_emailid,
+                    'payout_month': salary.payout_month,
+                    'monthly_ctc': salary.monthly_ctc,
+                    'Eligible_Deductions': salary.Eligible_Deductions,
+                    'Yearly_Taxable_Salary': salary.Yearly_Taxable_Salary,
+                    'Total_Tax_Liability': salary.Total_Tax_Liability,
+                    'Monthly_TDS': salary.Monthly_TDS,
+                    'Monthly_EPF': salary.Monthly_EPF,
+                    'Monthly_Professional_Tax': salary.Monthly_Professional_Tax,
+                    'Net_Salary': salary.Net_Salary,
+                }
+                salary_list.append(salary_dict)
+
+            return JsonResponse({'salaries': salary_list}, status=200)
+
+        except Salary.DoesNotExist:
+            return JsonResponse({'error': 'Salary records not found for the provided employee ID'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
