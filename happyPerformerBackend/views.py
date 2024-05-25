@@ -1241,3 +1241,53 @@ def BankTransfer(request):
         return JsonResponse(response_data, status=200)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def BankTransferUpdate(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    month = request.GET.get('month')
+    if not month:
+        return JsonResponse({'error': 'Month parameter is required'}, status=400)
+
+    if request.method == 'POST':
+        try:
+            narration = request.POST.get('narration')
+            debit_account = request.POST.get('debitac')
+            file_name_start = request.POST.get('filename')
+            value_date = request.POST.get('valuedate')
+
+            batch_id = Banktransferstatement.objects.all().count() + 1
+
+            salaries = Salary.objects.filter(holdsalary=0, paymentmethod='bank', paid=0, payout_month=month)
+            for salary in salaries:
+                Banktransferstatement.objects.create(
+                    batchid=batch_id,
+                    name=salary.emp_emailid.holder_name,
+                    bank=salary.emp_emailid.bank_name,
+                    branch=salary.emp_emailid.branch,
+                    ifsc=salary.emp_emailid.ifsc,
+                    accountno=salary.emp_emailid.acc_no,
+                    amount=salary.Net_Salary
+                )
+
+            Banktransferstatement.objects.filter(batchid=batch_id).update(
+                debitno=debit_account,
+                date=datetime.strptime(value_date, '%Y-%m-%d').date(),
+                narration=narration,
+                filename=file_name_start
+            )
+
+            salaries.update(paid=1)
+
+            return JsonResponse({'message': 'Bank Transfer Statement Generated successfully.'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)

@@ -40,6 +40,7 @@ urlpatterns = [
     path('ViewAllEnrollments', views.ViewAllEnrollments, name='ViewAllEnrollments'),
     path('BankTransferPayout', views.BankTransferPayout, name='BankTransferPayout'),
     path('BankTransfer', views.BankTransfer, name='BankTransfer'),
+    path('BankTransferUpdate', views.BankTransferUpdate, name='BankTransferUpdate'),
 ]
 
 
