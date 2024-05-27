@@ -678,7 +678,7 @@ class Quiz(models.Model):
     status = models.CharField(max_length=10)
 
 class Reporting(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)
     c_id = models.IntegerField()
     Reporting_from = models.CharField(max_length=50)
     Reporting_to = models.CharField(max_length=50)

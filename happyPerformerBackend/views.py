@@ -307,7 +307,6 @@ def UploadMedia(request):
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
-
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def UploadPdf(request):
@@ -447,6 +446,98 @@ def UpdateMedia(request, course_id):
 
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def ReportingStructureForm(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        employees = Employee.objects.filter(d_id__c_id=company_id, Status='Active').values('emp_emailid', 'd_id__c_id')
+        employees_list = list(employees)
+        return JsonResponse(employees_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            selected_employees = data.get('eemail', [])
+            reporting_employee = data.get('remail')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+
+        print(selected_employees)
+        print(reporting_employee)
+
+        if not selected_employees or not reporting_employee:
+            return JsonResponse({'error': 'Select employees and a reporting employee first!'}, status=400)
+
+        with transaction.atomic():
+            try:
+                for emp_email in selected_employees:
+                    Reporting.objects.create(
+                        c_id=company_id,
+                        Reporting_from=emp_email,
+                        Reporting_to=reporting_employee
+                    )
+
+                return JsonResponse({'success': 'Reporting structure updated successfully'}, status=200)
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CeoHrAnnouncements(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'POST':
+        sender = request.POST['email']
+        cc = request.POST.get('cc', '')
+        departments = request.POST.getlist('dept')
+        subject = request.POST['subject']
+        message = request.POST['msg']
+        files = request.FILES.getlist('files')
+        send_to_all = 'check' in request.POST and request.POST['check'] == 'yes'
+
+        emails_sent = 0
+        separator = settings.EMAIL_SEPARATOR
+
+        try:
+            if send_to_all:
+                employees = Employee.objects.filter(d_id__c_id=company_id, status='Active')
+            else:
+                employees = Employee.objects.filter(d_id__in=departments, status='Active')
+
+            for employee in employees:
+                email = EmailMessage(
+                    subject=subject,
+                    body=message,
+                    from_email=sender,
+                    to=[employee.emp_emailid],
+                    cc=[cc] if cc else None,
+                )
+
+                for file in files:
+                    email.attach(file.name, file.read(), file.content_type)
+
+                email.send()
+                emails_sent += 1
+
+            return JsonResponse({'success': f'Total {emails_sent} emails sent successfully'}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
