@@ -285,7 +285,7 @@ class Expenses(models.Model):
     expense_id = models.BigAutoField(primary_key=True)
     emp_emailid = models.CharField(max_length=50)
     expense = models.IntegerField()
-    expensedate = models.CharField(max_length=15)
+    expensedate = models.DateField(max_length=15)
     expenseitm = models.CharField(max_length=255)
 
 

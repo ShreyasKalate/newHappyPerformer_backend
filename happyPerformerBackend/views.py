@@ -16,6 +16,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from .decorators import role_required
 from django.db.models import Q
+from django.db.models import Sum
 
 @csrf_exempt
 def Home(request):
@@ -217,7 +218,6 @@ def UpdateSelfratings(request, sop_id):
     try:
         task = Tasks.objects.get(sop_id=sop_id, emp_emailid=user_id)
 
-        # Update the selfratings field
         data = json.loads(request.body)
         self_rating = int(data.get('selfratings'))
         task.selfratings = self_rating
@@ -228,6 +228,148 @@ def UpdateSelfratings(request, sop_id):
         return JsonResponse({'error': 'Task does not exist'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+def AddLoan(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email not found in session'}, status=400)
+
+    if request.method == 'GET':
+        loans = Loan.objects.filter(emp_emailid=emp_emailid).values('name', 'department', 'lamt', 'mamt', 'startdate', 'reason', 'status')
+
+        data = []
+        for index, loan in enumerate(loans, start=1):
+            status = "Pending" if loan['status'] == 0 else "Approved"
+            data.append({
+                'name': loan['name'],
+                'department': loan['department'],
+                'loan_amount': loan['lamt'],
+                'monthly_amount': loan['mamt'],
+                'start_date': loan['startdate'],
+                'reason': loan['reason'],
+                'status': status
+            })
+
+        return JsonResponse({'loans': data})
+
+    elif request.method == 'POST' and 'apply' in request.POST:
+        try:
+            loan_data = json.loads(request.body)
+            name = loan_data.get('name')
+            department = loan_data.get('department')
+            lamt = loan_data.get('lamt')
+            mamt = loan_data.get('mamt')
+            startdate = loan_data.get('startdate')
+            reason = loan_data.get('reason')
+            status = loan_data.get('status')
+
+            Loan.objects.create(name=name, emp_emailid=emp_emailid, department=department, lamt=lamt, mamt=mamt, startdate=startdate, reason=reason, status=status)
+
+            return JsonResponse({'message': 'Loan applied successfully'})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AddExpenses(request):
+    emp_emailid = request.session.get('emp_emailid')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email not found in session'}, status=400)
+
+    if request.method == 'POST':
+        expense_data = json.loads(request.body)
+
+        expense = expense_data.get('expense')
+        expensedate = expense_data.get('expensedate')
+        expenseitm = expense_data.get('expenseitm')
+
+        Expenses.objects.create(emp_emailid=emp_emailid, expense=expense, expensedate=expensedate, expenseitm=expenseitm)
+
+        return JsonResponse({'message': 'Expense added successfully'})
+
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def ManageExpenses(request):
+    emp_emailid = request.session.get('emp_emailid')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email not found in session'}, status=400)
+
+    if request.method == 'GET':
+        expenses = Expenses.objects.filter(emp_emailid=emp_emailid).values('expensedate', 'expenseitm', 'expense_id').annotate(total_expense=Sum('expense')).order_by('expensedate')
+
+        data = []
+        for expense in expenses:
+            data.append({
+                'date': expense['expensedate'].strftime('%Y-%m-%d'),
+                'amount': expense['total_expense'],
+                'expense_item': expense['expenseitm'],
+                'expense_id': expense['expense_id']
+            })
+
+        return JsonResponse({'expenses': data})
+
+    elif request.method == 'POST':
+        expense_data = json.loads(request.body)
+        expense_id = request.GET.get('expense_id')
+
+        if expense_id is not None:
+            expense = get_object_or_404(Expenses, expense_id=expense_id, emp_emailid=emp_emailid)
+            expense.expensedate = expense_data.get('date', expense.expensedate)
+            expense.expense = expense_data.get('amount', expense.expense)
+            expense.expenseitm = expense_data.get('expense_item', expense.expenseitm)
+            expense.save()
+            return JsonResponse({'message': 'Expense updated successfully'})
+        else:
+            return JsonResponse({'error': 'Expense ID not provided'}, status=400)
+
+
+    elif request.method == 'DELETE':
+        expense_id = request.GET.get('expense_id')
+        expense = get_object_or_404(Expenses, expense_id=expense_id, emp_emailid=emp_emailid)
+        expense.delete()
+        return JsonResponse({'message': 'Expense deleted successfully'})
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def ExpenseReport(request):
+    emp_emailid = request.session.get('emp_emailid')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email not found in session'}, status=400)
+
+    try:
+        expenses = Expenses.objects.filter(emp_emailid=emp_emailid).values('expensedate', 'expenseitm', 'expense_id').annotate(total_expense=Sum('expense')).order_by('expensedate')
+
+        data = []
+        for expense in expenses:
+            data.append({
+                'date': expense['expensedate'].strftime('%Y-%m-%d'),
+                'amount': expense['total_expense'],
+                'expense_item': expense['expenseitm'],
+                'expense_id': expense['expense_id']
+            })
+
+        return JsonResponse({'expenses': data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 
 
 @csrf_exempt
@@ -245,7 +387,6 @@ def AddCourses(request):
             description = request.POST.get('description')
             thumbnail = request.FILES.get('thumbnail')
 
-            # Validate required fields
             if not all([course_title, description, thumbnail]):
                 return HttpResponseBadRequest("Missing required fields")
 
