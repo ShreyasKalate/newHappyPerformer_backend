@@ -44,13 +44,13 @@ class Adhaar(models.Model):
     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Adhoc(models.Model):
-    id = models.AutoField(primary_key=True)
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=20 )
     dept = models.CharField(max_length=255)
     type = models.CharField(max_length=20)
     mon = models.CharField(max_length=20)
     year = models.PositiveSmallIntegerField()
-    amt = models.IntegerField()
+    amt = models.DecimalField(max_digits=10, decimal_places=2)
 
 
 class Admintable(models.Model):
@@ -133,7 +133,7 @@ class Case(models.Model):
     case_desc = models.TextField()
     case_date = models.DateTimeField(auto_now_add=True)
     case_status = models.CharField(max_length=30, default='New')
-    created_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', related_name='created_cases')
+    created_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='created_by', related_name='created_cases')
     assigned_to = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='assigned_to', null=True, default=None, related_name='assigned_cases')
 
 
@@ -488,7 +488,7 @@ class Leavetype(models.Model):
     CreationDate = models.DateTimeField(auto_now_add=True)
     company = models.ForeignKey('Company', on_delete=models.CASCADE, related_name='leave_types')
 
-class Leave_encashment(models.Model):
+class Leave_Encashment(models.Model):
     LE_id = models.BigAutoField(primary_key=True)
     txndt = models.DateField()
     refn = models.IntegerField()
@@ -499,6 +499,7 @@ class Leave_encashment(models.Model):
     pdays = models.IntegerField()
     sal = models.IntegerField(null=True)
     enclve = models.IntegerField(null=True)
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
 
 class Licence(models.Model):
     Licence_Id = models.BigAutoField(primary_key=True)
@@ -512,11 +513,11 @@ class Loan(models.Model):
     name = models.CharField(max_length=255)
     emp_emailid = models.CharField(max_length=255)
     department = models.CharField(max_length=255)
-    lamt = models.IntegerField()
-    mamt = models.IntegerField()
+    lamt = models.DecimalField(max_digits=10, decimal_places=2)
+    mamt = models.DecimalField(max_digits=10, decimal_places=2)
     startdate = models.DateField()
-    reason = models.CharField(max_length=255)
-    status = models.IntegerField()
+    reason = models.TextField()
+    status = models.IntegerField(default=0)
 
 
 class Login(models.Model):

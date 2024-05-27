@@ -936,6 +936,7 @@ def DisplayTraining(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+# Pages section
 @csrf_exempt
 def CreateCase(request):
     user_id = request.session.get('user_id')
@@ -982,7 +983,6 @@ def CreateCase(request):
         return HttpResponseBadRequest("Only POST requests are allowed")
 
 
-# check login thing
 @csrf_exempt
 def MyCases(request):
     def TimeAgo(ptime):
@@ -1006,7 +1006,6 @@ def MyCases(request):
     company_id = request.session.get('c_id')
 
     if not user_id or not company_id:
-        print('User not logged in:', request.session.items())
         return JsonResponse({'error': 'User not logged in'}, status=401)
 
     cases = Case.objects.filter(Q(created_by__emp_emailid=user_id) | Q(assigned_to__emp_emailid=user_id))
@@ -1014,9 +1013,7 @@ def MyCases(request):
     case_data = []
     for case in cases:
         timeago = TimeAgo(case.case_date)
-        assigned_to = "Not Assigned"
-        if case.assigned_to:
-            assigned_to = case.assigned_to.emp_name
+        assigned_to = case.assigned_to.emp_name if case.assigned_to else "Not Assigned"
 
         case_data.append({
             'case_id': case.case_id,
@@ -1027,6 +1024,276 @@ def MyCases(request):
             'assigned_to': assigned_to,
             'case_status': case.case_status,
         })
+
+    return JsonResponse({'cases': case_data})
+
+
+# Case Management section
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AllCases(request):
+    def TimeAgo(ptime):
+        current_time = timezone.now()
+        estimate_time = current_time - ptime
+        if estimate_time.days < 1:
+            return 'Today'
+
+        condition = {
+            365: 'year',
+            30: 'month',
+            1: 'day'
+        }
+
+        for secs, unit in condition.items():
+            delta = estimate_time.days // secs
+            if delta > 0:
+                return f"about {delta} {unit}{'s' if delta > 1 else ''} ago"
+
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    cases = Case.objects.filter(created_by__d_id__c_id=company_id)
+
+    case_data = []
+    for case in cases:
+        timeago = TimeAgo(case.case_date)
+        assigned_to = case.assigned_to.emp_name if case.assigned_to else "Not Assigned"
+        created_by = case.created_by
+
+        case_data.append({
+            'case_id': case.case_id,
+            'create_for': case.create_for,
+            'case_title': case.case_title,
+            'case_type': case.case_type,
+            'case_date': timeago,
+            'assigned_to': assigned_to,
+            'case_status': case.case_status,
+            'created_by_profile': created_by.emp_profile.url
+        })
+    return JsonResponse({'cases': case_data})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CaseInfo(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        case_id = request.GET.get('case_id')
+        if not case_id:
+            return JsonResponse({"error": "Case ID not provided"}, status=400)
+
+        case = get_object_or_404(Case, case_id=case_id)
+        # if case.created_by.d_id.c_id != company_id:
+        #     print(case.created_by.d_id.c_id)
+        #     print(company_id)
+        #     return JsonResponse({"error": "Unauthorized access"}, status=403)
+
+
+        case_data = {
+            'create_for': case.create_for,
+            'case_type': case.case_type,
+            'case_title': case.case_title,
+            'case_desc': case.case_desc,
+            'case_date': case.case_date.strftime('%Y-%m-%d %H:%M:%S'),
+            'case_status': case.case_status,
+            'case_id': case.case_id,
+            'created_by': {
+                'emp_name': case.created_by.emp_name,
+                'emp_emailid': case.created_by.emp_emailid,
+                'emp_phone': case.created_by.emp_phone,
+                'emp_profile': case.created_by.emp_profile.url,
+            }
+        }
+
+        return JsonResponse({'case': case_data})
+
+    elif request.method == 'POST':
+        user_email = request.session.get('emp_emailid')
+        case_id = request.GET.get('case_id')
+
+        if not case_id or not user_email:
+            return JsonResponse({"error": "Case ID or User Email not provided"}, status=400)
+
+        case = get_object_or_404(Case, case_id=case_id)
+        employee = get_object_or_404(Employee, emp_emailid=user_email)
+
+        case.assigned_to = employee
+        case.save()
+        return JsonResponse({"message": "Case assigned successfully"}, status=200)
+
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def BenefitsCases(request):
+    def get_timeago(ptime):
+        estimate_time = timezone.now() - ptime
+        if estimate_time.days < 1:
+            return 'Today'
+
+        condition = {
+            365: 'year',
+            30: 'month',
+            1: 'day'
+        }
+
+        for secs, unit in condition.items():
+            delta = estimate_time.days // secs
+            if delta > 0:
+                return f"about {delta} {unit}{'s' if delta > 1 else ''} ago"
+
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    cases = Case.objects.filter(
+        created_by__d_id__c_id=company_id,
+        case_type='Benefits'
+    ).select_related('created_by', 'assigned_to')
+
+    case_data = []
+    for case in cases:
+        timeago = get_timeago(case.case_date)
+        assigned_to = case.assigned_to.emp_name if case.assigned_to else "Not Assigned"
+        created_by = case.created_by
+
+        case_data.append({
+            'case_id': case.case_id,
+            'create_for': case.create_for,
+            'case_title': case.case_title,
+            'case_type': case.case_type,
+            'case_date': timeago,
+            'assigned_to': assigned_to,
+            'case_status': case.case_status,
+            'created_by': created_by.emp_name,
+            'created_by_profile': created_by.emp_profile.url
+        })
+
+    context = {
+        'cases': case_data
+    }
+
+    return JsonResponse({'cases': case_data})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def TravelExpenseCases(request):
+    def get_timeago(ptime):
+        estimate_time = timezone.now() - ptime
+        if estimate_time.days < 1:
+            return 'Today'
+
+        condition = {
+            365: 'year',
+            30: 'month',
+            1: 'day'
+        }
+
+        for secs, unit in condition.items():
+            delta = estimate_time.days // secs
+            if delta > 0:
+                return f"about {delta} {unit}{'s' if delta > 1 else ''} ago"
+
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    cases = Case.objects.filter(
+        created_by__d_id__c_id=company_id,
+        case_type='Travel and Expense'
+    ).select_related('created_by', 'assigned_to')
+
+    case_data = []
+    for case in cases:
+        timeago = get_timeago(case.case_date)
+        assigned_to = case.assigned_to.emp_name if case.assigned_to else "Not Assigned"
+        created_by = case.created_by
+
+        case_data.append({
+            'case_id': case.case_id,
+            'create_for': case.create_for,
+            'case_title': case.case_title,
+            'case_type': case.case_type,
+            'case_date': timeago,
+            'assigned_to': assigned_to,
+            'case_status': case.case_status,
+            'created_by': created_by.emp_name,
+            'created_by_profile': created_by.emp_profile.url
+        })
+
+    context = {
+        'cases': case_data
+    }
+
+    return JsonResponse({'cases': case_data})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CompensationPayrollCases(request):
+    def get_timeago(ptime):
+        estimate_time = timezone.now() - ptime
+        if estimate_time.days < 1:
+            return 'Today'
+
+        condition = {
+            365: 'year',
+            30: 'month',
+            1: 'day'
+        }
+
+        for secs, unit in condition.items():
+            delta = estimate_time.days // secs
+            if delta > 0:
+                return f"about {delta} {unit}{'s' if delta > 1 else ''} ago"
+
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    cases = Case.objects.filter(
+        created_by__d_id__c_id=company_id,
+        case_type='Compensation and payroll'
+    ).select_related('created_by', 'assigned_to')
+
+    case_data = []
+    for case in cases:
+        timeago = get_timeago(case.case_date)
+        assigned_to = case.assigned_to.emp_name if case.assigned_to else "Not Assigned"
+        created_by = case.created_by
+
+        case_data.append({
+            'case_id': case.case_id,
+            'create_for': case.create_for,
+            'case_title': case.case_title,
+            'case_type': case.case_type,
+            'case_date': timeago,
+            'assigned_to': assigned_to,
+            'case_status': case.case_status,
+            'created_by': created_by.emp_name,
+            'created_by_profile': created_by.emp_profile.url
+        })
+
+    context = {
+        'cases': case_data
+    }
 
     return JsonResponse({'cases': case_data})
 
@@ -1190,6 +1457,179 @@ def ViewAllEnrollments(request):
 #     employee_forms = CustomForms.objects.filter(c_id=c_id)
 
 #     return render(request, 'manage_forms.html', {'employee_forms': employee_forms, 'message': message})
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AdhocPayments(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        allowances = Adhoc.objects.all().values('name', 'dept', 'type', 'amt', 'mon', 'year')
+        allowances_list = list(allowances)
+        return JsonResponse(allowances_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            adhoc_payment = Adhoc(
+                name=data.get('name'),
+                dept=data.get('dept'),
+                type=data.get('type'),
+                amt=data.get('amt'),
+                mon=data.get('mon'),
+                year=data.get('year')
+            )
+            adhoc_payment.save()
+
+            return JsonResponse({'message': "Allowance or Deduction added successfully"}, status=201)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        except IntegrityError as e:
+            return JsonResponse({"error": "Database integrity error: " + str(e)}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def LoanPayments(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        all_loans = list(Loan.objects.all().values('id', 'name', 'department', 'lamt', 'mamt', 'startdate', 'reason', 'status'))
+        pending_loans = list(Loan.objects.filter(status=0).values('id', 'name', 'department', 'lamt', 'mamt', 'startdate', 'reason', 'status'))
+        approved_loans = list(Loan.objects.filter(status=1).values('id', 'name', 'department', 'lamt', 'mamt', 'startdate', 'reason', 'status'))
+
+        response_data = {
+            'all_loans': all_loans,
+            'pending_loans': pending_loans,
+            'approved_loans': approved_loans
+        }
+
+        return JsonResponse(response_data, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            loan_id = data.get('id')
+            if not loan_id:
+                return JsonResponse({"error": "Loan ID not provided"}, status=400)
+
+            loan = Loan.objects.get(id=loan_id)
+            loan.status = 1
+            loan.save()
+
+            return JsonResponse({'message': "Loan approved successfully"}, status=200)
+        except Loan.DoesNotExist:
+            return JsonResponse({"error": "Loan not found"}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def LeaveEncashment(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            employee = Employee.objects.get(emp_emailid=user_id)
+
+            leave_encashment = Leave_Encashment(
+                txndt = data.get('txndt'),
+                refn = data.get('refn'),
+                effdt = data.get('effdt'),
+                emp = data.get('emp'),
+                type = data.get('type'),
+                blnc = data.get('blnc'),
+                pdays = data.get('pdays'),
+                sal = data.get('sal'),
+                emp_emailid = employee
+            )
+            leave_encashment.save()
+
+            return JsonResponse({"message": "Leave inserted successfully"}, status=201)
+        except Employee.DoesNotExist:
+            return JsonResponse({"error": "Employee not found"}, status=404)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@role_required(['HR', 'Manager', 'Super Manager'])
+@csrf_exempt
+def ViewLeaveEncashment(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            leave_encashment_data = Leave_Encashment.objects.filter(emp_emailid__d_id__c_id=company_id).values('emp', 'blnc', 'pdays', 'enclve')
+            leave_encashment_list = list(leave_encashment_data)
+            return JsonResponse(leave_encashment_list, safe=False)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def OffCyclePayments(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        off_cycle_payments = Off_cycle.objects.all().values()
+        off_cycle_list = list(off_cycle_payments)
+        return JsonResponse(off_cycle_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            off_cycle_payment = Off_cycle(
+                name=data.get('name'),
+                tname=data.get('tname'),
+                amt=data.get('amt'),
+                effdt=data.get('effdt'),
+                note=data.get('note')
+            )
+            off_cycle_payment.save()
+
+            return JsonResponse({"message": "Off-cycle payment inserted successfully"}, status=201)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    else:
+        return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
 @csrf_exempt
