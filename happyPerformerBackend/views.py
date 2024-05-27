@@ -231,6 +231,78 @@ def UpdateSelfratings(request, sop_id):
 
 
 @csrf_exempt
+def ApplyLeave(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            leavetype = data.get('leavetype')
+            fromdate = data.get('fromdate')
+            todate = data.get('todate')
+            description = data.get('description')
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+
+        emp_email = request.session.get('emp_emailid')
+        employee = Employee.objects.get(emp_emailid=emp_email)
+
+        try:
+            date1 = datetime.strptime(fromdate, "%Y-%m-%d")
+            date2 = datetime.strptime(todate, "%Y-%m-%d")
+            days = (date2 - date1).days
+        except ValueError:
+            return JsonResponse({'error': 'Invalid date format'}, status=400)
+
+        try:
+            leave_type = Leavetype.objects.get(LeaveType=leavetype)
+        except Leavetype.DoesNotExist:
+            return JsonResponse({'error': 'Leave type does not exist'}, status=400)
+
+        try:
+            leave_count = Leavecounttemp.objects.get(emp_emailid=emp_email)
+        except Leavecounttemp.DoesNotExist:
+            return JsonResponse({'error': 'Leave count for employee not found'}, status=400)
+
+        leave_limit_field = leavetype.lower() + 'leave'
+        leave_limit = getattr(leave_count, leave_limit_field, 0)
+
+        final = leave_type.Limit - leave_limit - days
+        print(final)
+        if final < 0:
+            return JsonResponse({'error': 'Exceeding leave limits'}, status=400)
+
+        leave = Tblleaves.objects.create(
+            LeaveType=leave_type,
+            FromDate=fromdate,
+            ToDate=todate,
+            Days=days,
+            Description=description,
+            Status=0,
+            IsRead=0,
+            emp_emailid=employee
+        )
+
+        return JsonResponse({'message': 'Leave submitted successfully'}, status=200)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def LeaveHistory(request):
+    emp_emailid = request.session.get('emp_emailid')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    leaves = Tblleaves.objects.filter(emp_emailid=emp_emailid).values('id', 'LeaveType__LeaveType', 'FromDate', 'ToDate', 'PostingDate', 'AdminRemark', 'Status')
+    leaves_data = list(leaves)
+    print(leaves_data)
+
+    return JsonResponse({'Leaves': leaves_data}, status=200)
+
+
+@csrf_exempt
 def AddLoan(request):
     emp_emailid = request.session.get('emp_emailid')
     if not emp_emailid:

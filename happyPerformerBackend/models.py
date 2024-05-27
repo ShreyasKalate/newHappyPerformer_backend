@@ -166,7 +166,6 @@ class Chatbot_questions(models.Model):
     category_id = models.ForeignKey('chatbot_categories', on_delete=models.CASCADE, db_column='category_id')
 
 
-
 class Clearance(models.Model):
     Clearance_Id = models.BigAutoField(primary_key=True)
     Accounts = models.CharField(max_length=5, default='No')
@@ -466,15 +465,11 @@ class Kra(models.Model):
     status = models.IntegerField(default=0)
     kra_id = models.IntegerField()
     email_id = models.CharField(max_length=100, null=True, default=None)
-    kra_id = models.ForeignKey(Kra_table, on_delete=models.CASCADE, db_column='kra_id')
+    kra_id = models.ForeignKey('Kra_table', on_delete=models.CASCADE, db_column='kra_id')
 
-    class Meta:
-        indexes = [
-            models.Index(fields=['kra_id'], name='kra_kra_id_idx'),
-        ]
 
 class Leavecounttemp(models.Model):
-    emp_emailid = models.CharField(max_length=50, primary_key=True, default='A@gmail.com')
+    emp_emailid = models.CharField(max_length=50, primary_key=True)
     casualleave = models.IntegerField(default=15)
     medicalleave = models.IntegerField(default=15)
     lopleave = models.IntegerField(default=365)
@@ -829,8 +824,8 @@ class Tblleaves(models.Model):
     AdminRemarkDate = models.CharField(max_length=120, null=True, blank=True)
     Status = models.IntegerField()
     IsRead = models.IntegerField()
-    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, default="abc@gmail.com")
-    LeaveType = models.ForeignKey('LeaveType', on_delete=models.CASCADE)
+    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+    LeaveType = models.ForeignKey('LeaveType', on_delete=models.CASCADE, db_column='LeaveType')
 
 class Todotasks(models.Model):
     tid = models.BigAutoField(primary_key=True)
