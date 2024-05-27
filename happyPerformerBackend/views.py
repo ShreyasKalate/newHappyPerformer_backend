@@ -451,6 +451,50 @@ def UpdateMedia(request, course_id):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
+def AddNewEmployee(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        emp_count = Employee.objects.filter(d_id__c_id=company_id).count()
+        company_data = Company.objects.filter(c_id=company_id).values('payment_type', 'emp_limit').first()
+
+        response_data = {
+            'emp_count': emp_count,
+            'company': company_data,
+        }
+
+        return JsonResponse(response_data, status=200)
+
+    elif request.method == 'POST':
+        data = json.loads(request.body)
+        name = data.get('emp_name')
+        email = data.get('emp_emailid')
+        phone = data.get('emp_phone')
+        department_id = data.get('d_id')
+        skills = data.get('skills')
+
+        company = Company.objects.filter(c_id=company_id).first()
+        department = Department.objects.filter(d_id=department_id).first()
+
+        if company.emp_limit <= Employee.objects.filter(d_id__c_id=company_id).count():
+            return JsonResponse({'error': 'Employee limit reached'}, status=403)
+
+        Employee.objects.create(
+            emp_name=name,
+            emp_emailid=email,
+            emp_phone=phone,
+            d_id=department,
+            emp_skills=skills,
+        )
+
+        return JsonResponse({'success': 'Employee created successfully'}, status=201)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def EmployeeDetails(request):
     company_id = request.session.get('c_id')
 
@@ -1298,6 +1342,22 @@ def CompensationPayrollCases(request):
     return JsonResponse({'cases': case_data})
 
 
+# incomplete pending uncomment , need to complete this (Employee Jobs)
+# @csrf_exempt
+# @role_required(['HR', 'Manager', 'Super Manager'])
+# def ManagerRating(request):
+#     c_id = request.session.get('c_id')
+#     if not c_id:
+#         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+#     if request.method == 'GET':
+#         # Tasks
+#         tasks_data = Tasks.objects.filter(emp_emailid__d_id__c_id=c_id).values('emp_emailid', 'selfratings', 'status', 'tid__description' )
+#         print(tasks_data)
+#         tasks = list(tasks_data)
+#         return JsonResponse(tasks_data, safe=False)
+
+
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def FAQManagement(request):
@@ -1735,6 +1795,127 @@ def BankTransferUpdate(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
+def CashChequeTransferPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            payouts = Salary.objects.filter(paymentmethod='cash').order_by('-payout_month').values('sal_id', 'payout_month').distinct()
+
+            payout_list = [{'sal_id': payout['sal_id'], 'payout_month': payout['payout_month']} for payout in payouts]
+
+            return JsonResponse({'payroll_months': payout_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def HoldSalaryPayout(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            payouts = Salary.objects.filter().values('sal_id', 'holdsalary', 'emp_emailid__holder_name', 'emp_emailid__bank_name', 'emp_emailid__branch', 'emp_emailid__ifsc', 'emp_emailid__acc_no').distinct()
+
+            payout_list = []
+            for payout in payouts:
+                payout_dict = {
+                    'sal_id': payout['sal_id'],
+                    'holder_name': payout['emp_emailid__holder_name'],
+                    'bank_name': payout['emp_emailid__bank_name'],
+                    'branch': payout['emp_emailid__branch'],
+                    'ifsc': payout['emp_emailid__ifsc'],
+                    'acc_no': payout['emp_emailid__acc_no'],
+                    'hold_salary': payout['holdsalary']
+                }
+                payout_list.append(payout_dict)
+
+            return JsonResponse({'payouts': payout_list}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def HoldSalary(request):
+    c_id = request.session.get('c_id')
+    emailid = request.GET.get('emailid')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            emp_name = Salary.objects.filter(emp_emailid=emailid).values('emp_emailid__holder_name').first()
+            if not emp_name:
+                return JsonResponse({'error': 'Employee not found'}, status=404)
+            return JsonResponse(emp_name, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            hold_reason = data.get('hold_reason')
+            remarks = data.get('remarks')
+
+            if not hold_reason or not remarks:
+                return JsonResponse({'error': 'Hold reason and remarks are required'}, status=400)
+
+            salary = Salary.objects.filter(emp_emailid=emailid, emp_emailid__emp_emailid__d_id__c_id=c_id).first()
+            if not salary:
+                return JsonResponse({'error': 'Salary or Bank details not found for the given email ID'}, status=404)
+
+            salary.holdsalary = 1
+            salary.notes = hold_reason
+            salary.remarks = remarks
+            salary.save()
+
+            return JsonResponse({'message': f'{salary.emp_emailid.holder_name} has been put on hold for salary.'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def UnholdSalary(request):
+    c_id = request.session.get('c_id')
+    emailid = request.GET.get('emailid')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'POST':
+        try:
+            salary = Salary.objects.filter(emp_emailid=emailid, emp_emailid__emp_emailid__d_id__c_id=c_id).first()
+            if not salary:
+                return JsonResponse({'error': 'Salary or Bank details not found for the given email ID'}, status=404)
+
+            salary.holdsalary = 0
+            salary.save()
+
+            return JsonResponse({'message': f'{salary.emp_emailid.holder_name} is no more on hold for salary.'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def PayslipPayout(request):
     c_id = request.session.get('c_id')
     if not c_id:
@@ -1783,61 +1964,6 @@ def HomeSalary(request):
     if request.method == 'GET':
         employees = Employee.objects.filter(d_id__in=Department.objects.filter(c_id=c_id)).values('emp_name', 'emp_emailid', 'emp_role')
         return JsonResponse({'employees': list(employees)})
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-
-@csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
-def HoldSalaryPayout(request):
-    c_id = request.session.get('c_id')
-    if not c_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
-
-    if request.method == 'GET':
-        try:
-            payouts = Salary.objects.filter().values('sal_id', 'holdsalary', 'emp_emailid__holder_name', 'emp_emailid__bank_name', 'emp_emailid__branch', 'emp_emailid__ifsc', 'emp_emailid__acc_no').distinct()
-
-            payout_list = []
-            for payout in payouts:
-                payout_dict = {
-                    'sal_id': payout['sal_id'],
-                    'holder_name': payout['emp_emailid__holder_name'],
-                    'bank_name': payout['emp_emailid__bank_name'],
-                    'branch': payout['emp_emailid__branch'],
-                    'ifsc': payout['emp_emailid__ifsc'],
-                    'acc_no': payout['emp_emailid__acc_no'],
-                    'hold_salary': payout['holdsalary']
-                }
-                payout_list.append(payout_dict)
-
-            return JsonResponse({'payouts': payout_list}, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
-
-    else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
-
-
-@csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
-def CashChequeTransferPayout(request):
-    c_id = request.session.get('c_id')
-    if not c_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
-
-    if request.method == 'GET':
-        try:
-            payouts = Salary.objects.filter(paymentmethod='cash').order_by('-payout_month').values('sal_id', 'payout_month').distinct()
-
-            payout_list = [{'sal_id': payout['sal_id'], 'payout_month': payout['payout_month']} for payout in payouts]
-
-            return JsonResponse({'payroll_months': payout_list}, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
-
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
