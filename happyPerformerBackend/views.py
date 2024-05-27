@@ -1749,6 +1749,32 @@ def PayslipPayout(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
+def GeneratePayslip(request):
+    c_id = request.session.get('c_id')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        month = request.GET.get('month')
+        if not month:
+            return JsonResponse({'error': 'Month parameter is required'}, status=400)
+
+        payslip = Salary.objects.filter(emp_emailid__emp_emailid__d_id__c_id=c_id, payout_month=month).select_related('emp_emailid').values(
+            'sal_id',
+            'emp_emailid__holder_name',
+            'emp_emailid__bank_name',
+            'emp_emailid__branch',
+            'emp_emailid__acc_type',
+            'emp_emailid__acc_no'
+        )
+
+        return JsonResponse({'payouts': list(payslip)})
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def HomeSalary(request):
     c_id = request.session.get('c_id')
     if not c_id:
