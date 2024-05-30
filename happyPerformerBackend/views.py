@@ -17,6 +17,7 @@ from django.contrib.auth.decorators import login_required
 from .decorators import role_required
 from django.db.models import Q
 from django.db.models import Sum
+from django.core.files.uploadedfile import UploadedFile
 
 @csrf_exempt
 def Home(request):
@@ -1412,6 +1413,7 @@ def MyCases(request):
     return JsonResponse({'cases': case_data})
 
 
+# Need to add signals ( triggers) to the employee table
 @csrf_exempt
 def UpdatePersonalDetails(request):
     emp_emailid = request.session.get('emp_emailid')
@@ -1480,6 +1482,485 @@ def UpdatePersonalDetails(request):
             return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def UpdateJobDetails(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            job_info = Job_info.objects.get(emp_emailid=emp_emailid)
+
+            data = {
+                'job_title': job_info.job_title,
+                'department': job_info.department,
+                'working_type': job_info.working_type,
+                'start_date': job_info.start_date,
+            }
+
+            return JsonResponse({'status': 'success', 'data': data})
+
+        except Personal_details.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Personal details not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+    elif request.method == 'PUT':
+        try:
+            job_title = request.POST.get('job_title')
+            department = request.POST.get('department')
+            working_type = request.POST.get('working_type')
+            start_date = request.POST.get('start_date')
+
+            try:
+                job_info = Job_info.objects.get(emp_emailid=emp_emailid)
+                job_info.job_title = job_title
+                job_info.department = department
+                job_info.working_type = working_type
+                job_info.start_date = start_date
+
+                job_info.save()
+
+                return JsonResponse({'status': 'success'})
+            except Personal_details.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': 'Personal details not found'}, status=404)
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def UpdateBankDetails(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            bank_details = Bank_details.objects.get(emp_emailid=emp_emailid)
+            data = {
+                'holder_name': bank_details.holder_name,
+                'bank_name': bank_details.bank_name,
+                'acc_no': bank_details.acc_no,
+                'branch': bank_details.branch,
+                'acc_type': bank_details.acc_type,
+                'ifsc': bank_details.ifsc,
+                'Pan_no': bank_details.Pan_no,
+            }
+            return JsonResponse({'status': 'success', 'data': data})
+
+        except BankDetails.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Bank details not found'}, status=404)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            holder_name = data.get('holder_name')
+            bank_name = data.get('bank_name')
+            acc_no = data.get('acc_no')
+            branch = data.get('branch')
+            acc_type = data.get('acc_type')
+            ifsc = data.get('ifsc')
+            Pan_no = data.get('Pan_no')
+
+            if not all([holder_name, bank_name, acc_no, branch, acc_type, ifsc, Pan_no, emp_emailid]):
+                return JsonResponse({'status': 'error', 'message': 'Missing fields'}, status=400)
+
+            try:
+                bank_details = Bank_details.objects.get(emp_emailid=emp_emailid)
+                bank_details.holder_name = holder_name
+                bank_details.bank_name = bank_name
+                bank_details.acc_no = acc_no
+                bank_details.branch = branch
+                bank_details.acc_type = acc_type
+                bank_details.ifsc = ifsc
+                bank_details.Pan_no = Pan_no
+                bank_details.emp_emailid = emp_emailid
+                bank_details.save()
+
+                return JsonResponse({'status': 'success'})
+
+            except BankDetails.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': 'Bank details not found'}, status=404)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+def UpdateWorkExperience(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        work_experiences = Work_exp.objects.filter(emp_emailid=emp_emailid)
+
+        work_exp_list = []
+        for work_exp in work_experiences:
+            work_exp_list.append({
+                'W_Id': work_exp.W_Id,
+                'start_date': work_exp.start_date,
+                'end_date': work_exp.end_date,
+                'comp_name': work_exp.comp_name,
+                'comp_location': work_exp.comp_location,
+                'designation': work_exp.designation,
+                'gross_salary': work_exp.gross_salary,
+                'leave_reason': work_exp.leave_reason
+            })
+
+        return JsonResponse(work_exp_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            W_Id = request.GET.get('W_Id')
+            work_exp = get_object_or_404(Work_exp, W_id=W_Id, emp_emailid=emp_emailid)
+
+            work_exp = Work_exp(
+                emp_emailid=emp_emailid,
+                start_date=data['start_date'],
+                end_date=data['end_date'],
+                comp_name=data['comp_name'],
+                comp_location=data['comp_location'],
+                designation=data['designation'],
+                gross_salary=data['gross_salary'],
+                leave_reason=data['leave_reason']
+            )
+            work_exp.save()
+            return JsonResponse({'message': 'Work experience added successfully', 'W_Id': work_exp.W_Id})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            W_Id = request.GET.get('W_Id')
+            work_exp = get_object_or_404(Work_exp, W_id=W_Id, emp_emailid=emp_emailid)
+
+            work_exp.start_date = data['start_date']
+            work_exp.end_date = data['end_date']
+            work_exp.comp_name = data['comp_name']
+            work_exp.comp_location = data['comp_location']
+            work_exp.designation = data['designation']
+            work_exp.gross_salary = data['gross_salary']
+            work_exp.leave_reason = data['leave_reason']
+            work_exp.emp_emailid = data['emp_emailid']
+            work_exp.save()
+
+            return JsonResponse({'message': 'Work experience updated successfully'})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'DELETE':
+        try:
+            W_Id = request.GET.get('W_Id')
+            work_exp = get_object_or_404(Work_exp, W_Id=W_Id, emp_emailid=emp_emailid)
+            work_exp.delete()
+
+            return JsonResponse({'message': 'Work experience deleted successfully'})
+        except KeyError as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    else:
+        return HttpResponseNotAllowed(['GET', 'POST', 'PUT', 'DELETE'])
+
+
+@csrf_exempt
+def UpdateDependent(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        dependents = Dependent.objects.filter(emp_emailid=emp_emailid)
+
+        dependent_list = []
+        for dep in dependents:
+            dependent_list.append({
+                'D_name': dep.D_name,
+                'D_gender': dep.D_gender,
+                'D_dob': dep.D_dob,
+                'D_relation': dep.D_relation,
+                'D_desc': dep.D_desc,
+                'D_Id': dep.D_Id,
+            })
+
+        return JsonResponse(dependent_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            dependent = Dependent(
+                emp_emailid=emp_emailid,
+                D_name=data['D_name'],
+                D_gender=data['D_gender'],
+                D_dob=data['D_dob'],
+                D_relation=data['D_relation'],
+                D_desc=data['D_desc']
+            )
+            dependent.save()
+
+            return JsonResponse({'message': 'Dependent added successfully', 'D_Id': dependent.id})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            D_Id = request.GET.get('D_Id')
+            dependent = get_object_or_404(Dependent, D_Id = D_Id, emp_emailid=emp_emailid)
+
+            dependent.D_name = data['D_name']
+            dependent.D_gender = data['D_gender']
+            dependent.D_dob = data['D_dob']
+            dependent.D_relation = data['D_relation']
+            dependent.D_desc = data['D_desc']
+            dependent.save()
+
+            return JsonResponse({'message': 'Dependent updated successfully'})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'DELETE':
+        try:
+            D_Id = request.GET.get('D_Id')
+            dependent = get_object_or_404(Dependent, D_Id = D_Id, emp_emailid=emp_emailid)
+            dependent.delete()
+
+            return JsonResponse({'message': 'Dependent deleted successfully'})
+        except KeyError as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    else:
+        return HttpResponseNotAllowed(['GET', 'POST', 'PUT', 'DELETE'])
+
+
+@csrf_exempt
+def UpdateAdhaar(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+
+        adhaar = Adhaar.objects.filter(emp_emailid=emp_emailid).first()
+        if adhaar:
+            data = {
+                'adhaar_no': adhaar.adhaar_no,
+                'adhaar_name': adhaar.adhaar_name,
+                'enroll_no': adhaar.enroll_no,
+                'adhaar_pic': adhaar.adhaar_pic.url if adhaar.adhaar_pic else ''
+            }
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'error': 'Adhaar details not found!'}, status=404)
+
+    elif request.method == 'POST':
+        # Requires Data in Post not in json format
+        data = request.POST
+        file = request.FILES.get('adhaar_pic')
+
+        employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+        adhaar, created = Adhaar.objects.get_or_create(
+            emp_emailid=employee,
+            defaults={
+                'adhaar_no': data['adhaar_no'],
+                'adhaar_name': data['adhaar_name'],
+                'enroll_no': data['enroll_no'],
+                'adhaar_pic': file
+            }
+        )
+        if created:
+            return JsonResponse({'message': 'Adhaar details created successfully!'}, status=201)
+        else:
+            adhaar.adhaar_no = data['adhaar_no']
+            adhaar.adhaar_name = data['adhaar_name']
+            adhaar.enroll_no = data['enroll_no']
+            if file:
+                adhaar.adhaar_pic = file
+            adhaar.save()
+            return JsonResponse({'message': 'Adhaar details updated successfully!'})
+
+    elif request.method == 'DELETE':
+        adhaar = Adhaar.objects.filter(emp_emailid=emp_emailid).first()
+        if adhaar:
+            adhaar.delete()
+            return JsonResponse({'message': 'Adhaar details deleted successfully!'})
+        else:
+            return JsonResponse({'error': 'Adhaar details not found!'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed!'}, status=405)
+
+
+@csrf_exempt
+def UpdateQualification(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        qualifications = Qualification.objects.filter(emp_emailid=emp_emailid)
+
+        qualification_list = []
+        for qual in qualifications:
+            qualification_list.append({
+                'Q_Id': qual.Q_Id,
+                'q_type': qual.q_type,
+                'q_degree': qual.q_degree,
+                'q_clg': qual.q_clg,
+                'q_uni': qual.q_uni,
+                'q_duration': qual.q_duration,
+                'q_yop': qual.q_yop,
+                'q_comment': qual.q_comment,
+            })
+
+        return JsonResponse(qualification_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            qualification = Qualification(
+                emp_emailid = emp_emailid,
+                q_type=data['q_type'],
+                q_degree=data['q_degree'],
+                q_clg=data['q_clg'],
+                q_uni=data['q_uni'],
+                q_duration=data['q_duration'],
+                q_yop=data['q_yop'],
+                q_comment=data['q_comment']
+            )
+            qualification.save()
+
+            return JsonResponse({'message': 'Qualification added successfully', 'Q_Id': qualification.Q_Id})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            Q_Id = request.GET.get('Q_Id')
+            qualification = Qualification.objects.get(Q_Id=Q_Id, emp_emailid=emp_emailid)
+
+            qualification.q_type = data['q_type']
+            qualification.q_degree = data['q_degree']
+            qualification.q_clg = data['q_clg']
+            qualification.q_uni = data['q_uni']
+            qualification.q_duration = data['q_duration']
+            qualification.q_yop = data['q_yop']
+            qualification.q_comment = data['q_comment']
+            qualification.save()
+
+            return JsonResponse({'message': 'Qualification updated successfully'})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+        except Qualification.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Qualification not found'}, status=404)
+
+    elif request.method == 'DELETE':
+        try:
+            Q_Id = request.GET.get('Q_Id')
+            qualification = Qualification.objects.get(Q_Id=Q_Id, emp_emailid=emp_emailid)
+            qualification.delete()
+
+            return JsonResponse({'message': 'Qualification deleted successfully'})
+        except (KeyError, Qualification.DoesNotExist) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    else:
+        return HttpResponseNotAllowed(['GET', 'POST', 'PUT', 'DELETE'])
+
+
+@csrf_exempt
+def UpdateFamilyDetails(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        family_details = Family_details.objects.filter(emp_emailid=emp_emailid)
+
+        family_list = []
+        for fam in family_details:
+            family_list.append({
+                'F_Id': fam.F_Id,
+                'F_name': fam.F_name,
+                'F_gender': fam.F_gender,
+                'F_dob': fam.F_dob,
+                'F_contact': fam.F_contact,
+                'F_mail': fam.F_mail,
+                'F_relation': fam.F_relation,
+                'F_comment': fam.F_comment,
+            })
+
+        return JsonResponse(family_list, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            family_detail = Family_details(
+                emp_emailid=emp_emailid,
+                F_name=data['F_name'],
+                F_gender=data['F_gender'],
+                F_dob=data['F_dob'],
+                F_contact=data['F_contact'],
+                F_mail=data['F_mail'],
+                F_relation=data['F_relation'],
+                F_comment=data['F_comment']
+            )
+            family_detail.save()
+
+            return JsonResponse({'message': 'Family detail added successfully', 'F_Id': family_detail.F_Id})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+            F_Id = request.GET.get('F_Id')
+            family_detail = Family_details.objects.get(F_Id=F_Id, emp_emailid=emp_emailid)
+
+            family_detail.F_name = data['F_name']
+            family_detail.F_gender = data['F_gender']
+            family_detail.F_dob = data['F_dob']
+            family_detail.F_contact = data['F_contact']
+            family_detail.F_mail = data['F_mail']
+            family_detail.F_relation = data['F_relation']
+            family_detail.F_comment = data['F_comment']
+            family_detail.save()
+
+            return JsonResponse({'message': 'Family detail updated successfully'})
+        except (KeyError, ValueError) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+        except Family_details.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Family detail not found'}, status=404)
+
+    elif request.method == 'DELETE':
+        try:
+            F_Id = request.GET.get('F_Id')
+            family_detail = Family_details.objects.get(F_Id=F_Id, emp_emailid=emp_emailid)
+            family_detail.delete()
+
+            return JsonResponse({'message': 'Family detail deleted successfully'})
+        except (KeyError, Family_details.DoesNotExist) as e:
+            return HttpResponseBadRequest(f"Invalid data: {e}")
+
+    else:
+        return HttpResponseNotAllowed(['GET', 'POST', 'PUT', 'DELETE'])
 
 
 # Case Management section

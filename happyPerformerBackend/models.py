@@ -39,8 +39,8 @@ class Adhaar(models.Model):
     A_Id = models.BigAutoField(primary_key=True)
     adhaar_no = models.BigIntegerField()
     adhaar_name = models.CharField(max_length=200)
-    enroll_no = models.PositiveIntegerField()
-    adhaar_pic = models.CharField(max_length=150)
+    enroll_no = models.PositiveBigIntegerField()
+    adhaar_pic = models.FileField(upload_to='adhaar_pics/', validators=[validate_image_extension])
     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Adhoc(models.Model):
