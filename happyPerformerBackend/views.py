@@ -46,8 +46,8 @@ def Login(request):
             return JsonResponse({'message': 'User already logged in'}, status=200)
 
         data = json.loads(request.body)
-        emp_emailid = data.get('emp_emailid')
-        emp_pwd = data.get('emp_pwd')
+        emp_emailid = data.get('email')
+        emp_pwd = data.get('password')
 
         try:
             user = Employee.objects.get(emp_emailid=emp_emailid, emp_pwd=emp_pwd)
@@ -85,6 +85,42 @@ def Login(request):
             return JsonResponse({'error': 'Invalid username or password'}, status=401)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+def Users(request):
+    company_id = request.session.get('c_id')
+    user_id = request.session.get('user_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    employees = Employee.objects.filter(d_id__c_id=company_id, emp_emailid=user_id).values(
+        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id', 'emp_profile'
+    )
+    # try:
+    #     user_data = {
+    #         'id': user.emp_emailid,
+    #         'email': user.emp_emailid,
+    #         'name': user.emp_name,
+    #         'phone': user.emp_phone,
+    #         'role': user.emp_role,
+    #         'd_id': user.d_id.d_id,
+    #         'c_id': user.d_id.c_id.c_id,
+    #         'c_name': user.d_id.c_id.c_name
+    #     }
+    data = {
+        'employees': list(employees)
+    }
+    print(company_id)
+    print(user_id)
+    print(employees)
+    print(data)
+    return JsonResponse(data)
+    #     return JsonResponse(user_data, status=200)
+    # except Employee.DoesNotExist:
+    #     return JsonResponse({'error': 'User not found'}, status=404)
+    # except Exception as e:
+    #     return JsonResponse({'error': str(e)}, status=400)
 
 
 @csrf_exempt
@@ -133,9 +169,10 @@ def Register(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
+# @login_required
 def EmployeeMaster(request):
     company_id = request.session.get('c_id')
-
+    print(company_id)
     if not company_id:
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
@@ -150,7 +187,7 @@ def EmployeeMaster(request):
     return JsonResponse(data)
 
 
-# need to complete this view and add session
+# incomplete , need to complete this view and add session
 @csrf_exempt
 def Profile(request, id):
     try:
@@ -241,7 +278,6 @@ def ApplyLeave(request):
             description = data.get('description')
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
 
         emp_email = request.session.get('emp_emailid')
         employee = Employee.objects.get(emp_emailid=emp_email)
@@ -1374,6 +1410,76 @@ def MyCases(request):
         })
 
     return JsonResponse({'cases': case_data})
+
+
+@csrf_exempt
+def UpdatePersonalDetails(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            personal_detail = Personal_details.objects.get(mail=emp_emailid)
+            data = {
+                'first_name': personal_detail.first_name,
+                'last_name': personal_detail.last_name,
+                'address': personal_detail.address,
+                'state': personal_detail.state,
+                'city': personal_detail.city,
+                'district': personal_detail.district,
+                'post_code': personal_detail.post_code,
+                'Contact': personal_detail.Contact,
+                'birth_date': personal_detail.birth_date,
+                'gender': personal_detail.gender,
+                'emergency_name': personal_detail.emergency_name,
+                'emergency_contact': personal_detail.emergency_contact,
+                'emp_emailid': emp_emailid,
+            }
+            return JsonResponse({'status': 'success', 'data': data})
+        except Personal_details.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'User not found'}, status=404)
+
+    elif request.method == 'PUT':
+        try:
+            data = json.loads(request.body)
+
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            address = data.get('address')
+            state = data.get('state')
+            city = data.get('city')
+            district = data.get('district')
+            post_code = data.get('post_code')
+            Contact = data.get('Contact')
+            birth_date = data.get('birth_date')
+            gender = data.get('gender')
+            emergency_name = data.get('emergency_name')
+            emergency_contact = data.get('emergency_contact')
+
+            try:
+                personal_detail = Personal_details.objects.get(mail=emp_emailid)
+                personal_detail.first_name = first_name
+                personal_detail.last_name = last_name
+                personal_detail.address = address
+                personal_detail.state = state
+                personal_detail.city = city
+                personal_detail.district = district
+                personal_detail.post_code = post_code
+                personal_detail.Contact = Contact
+                personal_detail.birth_date = birth_date
+                personal_detail.gender = gender
+                personal_detail.emergency_name = emergency_name
+                personal_detail.emergency_contact = emergency_contact
+                personal_detail.save()
+                return JsonResponse({'status': 'success'})
+            except Personal_details.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': 'User not found'}, status=404)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON'}, status=400)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
 
 
 # Case Management section

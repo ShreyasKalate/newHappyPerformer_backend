@@ -36,6 +36,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*','http://localhost:5173']
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
@@ -44,6 +46,16 @@ CORS_ALLOWED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
 ]
+CORS_ORIGIN_WHITELIST = [
+    'http://localhost:5173',  # Adjust this to match your frontend URL
+]
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'  # Store sessions in the database
+SESSION_COOKIE_NAME = 'sessionid'  # Default is 'sessionid', can be changed
+SESSION_COOKIE_HTTPONLY = True  # Same as 'httpOnly: true' in Express
+SESSION_COOKIE_SECURE = False  # Set to True in production
+SESSION_SAVE_EVERY_REQUEST = False  # Same as 'resave: false' in Express
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Session will not expire when the browser closes
 
 # Application definition
 
