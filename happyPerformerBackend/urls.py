@@ -51,6 +51,7 @@ urlpatterns = [
     path('UpdateWorkExperience/', views.UpdateWorkExperience, name='UpdateWorkExperience'),
     path('UpdateDependent/', views.UpdateDependent, name='UpdateDependent'),
     path('UpdateAdhaar/', views.UpdateAdhaar, name='UpdateAdhaar'),
+    path('UpdateLicence/', views.UpdateLicence, name='UpdateLicence'),
     path('UpdateQualification/', views.UpdateQualification, name='UpdateQualification'),
     path('UpdateFamilyDetails/', views.UpdateFamilyDetails, name='UpdateFamilyDetails'),
     path('AllCases', views.AllCases, name='AllCases'),

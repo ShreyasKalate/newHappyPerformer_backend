@@ -499,8 +499,9 @@ class Leave_Encashment(models.Model):
 class Licence(models.Model):
     Licence_Id = models.BigAutoField(primary_key=True)
     licence_no = models.CharField(max_length=100)
-    issue_date = models.DateField()
+    licence_name = models.CharField(max_length=100, default=None)
     expiry_date = models.DateField()
+    licence_pic = models.FileField(upload_to='DrivingLicense/',  validators=[validate_image_extension], default=None)
     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
 
 class Loan(models.Model):

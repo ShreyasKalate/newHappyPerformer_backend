@@ -1806,6 +1806,63 @@ def UpdateAdhaar(request):
 
 
 @csrf_exempt
+def UpdateLicence(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+
+    if request.method == 'GET':
+        licence = Licence.objects.filter(emp_emailid=employee).first()
+        if licence:
+            data = {
+                'licence_no': licence.licence_no,
+                'licence_name': licence.licence_name,
+                'expiry_date': licence.expiry_date,
+                'licence_pic': licence.licence_pic.url if licence.licence_pic else None,
+            }
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'message': 'No licence found'}, status=404)
+
+    elif request.method == 'POST':
+        data = request.POST
+        file = request.FILES.get('licence_pic')
+        licence, created = Licence.objects.update_or_create(
+            emp_emailid=employee,
+            defaults={
+                'licence_no': data['licence_no'],
+                'licence_name': data['licence_name'],
+                'expiry_date': data['expiry_date'],
+                'licence_pic': file
+            }
+        )
+        if created:
+            return JsonResponse({'message': 'Licence details created successfully!'}, status=201)
+        else:
+            license.licence_no = data['licence_no']
+            license.licence_name = data['licence_name']
+            license.expiry_date = data['expiry_date']
+            if file:
+                license.licence_pic = file
+            license.save()
+            return JsonResponse({'message': 'Licence details updated successfully!'})
+
+        return JsonResponse({'message': 'Licence details saved successfully!'})
+
+    elif request.method == 'DELETE':
+        licence = get_object_or_404(Licence, emp_emailid=employee)
+        if licence.licence_pic:
+            licence.licence_pic.delete(save=False)
+        licence.delete()
+        return JsonResponse({'message': 'Licence details deleted successfully!'})
+
+    else:
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
 def UpdateQualification(request):
     emp_emailid = request.session.get('emp_emailid')
     if not emp_emailid:
