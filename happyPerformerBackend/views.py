@@ -1863,6 +1863,114 @@ def UpdateLicence(request):
 
 
 @csrf_exempt
+def UpdatePassport(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        passport = Passport.objects.filter(emp_emailid=emp_emailid).first()
+        if passport:
+            data = {
+                'passport_no': passport.passport_no,
+                'passport_name': passport.passport_name,
+                'passport_validity': passport.passport_validity,
+                'passport_pic': passport.passport_pic.url if passport.passport_pic else ''
+            }
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'error': 'Passport details not found!'}, status=404)
+
+    elif request.method == 'POST':
+        data = request.POST
+        file = request.FILES.get('passport_pic')
+
+        employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+        passport, created = Passport.objects.get_or_create(
+            emp_emailid=employee,
+            defaults={
+                'passport_no': data['passport_no'],
+                'passport_name': data['passport_name'],
+                'passport_validity': data['passport_validity'],
+                'passport_pic': file
+            }
+        )
+        if created:
+            return JsonResponse({'message': 'Passport details created successfully!'}, status=201)
+        else:
+            passport.passport_no = data['passport_no']
+            passport.passport_name = data['passport_name']
+            passport.passport_validity = data['passport_validity']
+            if file:
+                passport.passport_pic = file
+            passport.save()
+            return JsonResponse({'message': 'Passport details updated successfully!'})
+
+    elif request.method == 'DELETE':
+        passport = Passport.objects.filter(emp_emailid=emp_emailid).first()
+        if passport:
+            passport.delete()
+            return JsonResponse({'message': 'Passport details deleted successfully!'})
+        else:
+            return JsonResponse({'error': 'Passport details not found!'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed!'}, status=405)
+
+
+def UpdatePan(request):
+    emp_emailid = request.session.get('emp_emailid')
+    if not emp_emailid:
+        return JsonResponse({'status': 'error', 'message': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        pan = Pan.objects.filter(emp_emailid=emp_emailid).first()
+        if pan:
+            data = {
+                'pan_no': pan.pan_no,
+                'pan_name': pan.pan_name,
+                'pan_pic': pan.pan_pic.url if pan.pan_pic else ''
+            }
+            return JsonResponse(data)
+        else:
+            return JsonResponse({'error': 'PAN details not found!'}, status=404)
+
+    elif request.method == 'POST':
+        data = request.POST
+        file = request.FILES.get('pan_pic')
+
+        employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+        pan, created = Pan.objects.get_or_create(
+            emp_emailid=employee,
+            defaults={
+                'pan_no': data['pan_no'],
+                'pan_name': data['pan_name'],
+                'pan_pic': file
+            }
+        )
+        if created:
+            return JsonResponse({'message': 'PAN details created successfully!'}, status=201)
+        else:
+            pan.pan_no = data['pan_no']
+            pan.pan_name = data['pan_name']
+            if file:
+                pan.pan_pic = file
+            pan.save()
+            return JsonResponse({'message': 'PAN details updated successfully!'})
+
+    elif request.method == 'DELETE':
+        pan = Pan.objects.filter(emp_emailid=emp_emailid).first()
+        if pan:
+            pan.delete()
+            return JsonResponse({'message': 'PAN details deleted successfully!'})
+        else:
+            return JsonResponse({'error': 'PAN details not found!'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Method not allowed!'}, status=405)
+
+
+@csrf_exempt
 def UpdateQualification(request):
     emp_emailid = request.session.get('emp_emailid')
     if not emp_emailid:
