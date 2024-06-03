@@ -85,6 +85,8 @@ urlpatterns = [
     path('CustomForms/', views.CustomForms, name='CustomForms'),
     path('EditFormView/', views.EditFormView, name='EditFormView'),
     path('AllocateFormView/', views.AllocateFormView, name='AllocateFormView'),
+    path('AddTextQuestionFormView/', views.AddTextQuestionFormView, name='AddTextQuestionFormView'),
+    path('AddRadioQuestionView/', views.AddRadioQuestionView, name='AddRadioQuestionView'),
 ]
 
 

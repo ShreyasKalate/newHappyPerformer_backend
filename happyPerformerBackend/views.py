@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import transaction
 from django.core import serializers
-from django.db import connection
+from django.db import connection, IntegrityError
 from django.utils import timezone
 from datetime import datetime
 from django.shortcuts import get_object_or_404
@@ -3175,8 +3175,9 @@ def EditFormView(request):
     if not form_name:
         return JsonResponse({'error': 'Form name is required'}, status=400)
 
+    formatted_form_name = form_name.replace(' ', '_').lower()
     try:
-        questions = Custom_forms_questions.objects.filter(form_name=form_name, c_id=company_id).values()
+        questions = Custom_forms_questions.objects.filter(form_name=formatted_form_name, c_id=company_id).values()
         employees = Employee.objects.filter(d_id__c_id=c_id).values_list('emp_name', flat=True)
         return JsonResponse({'questions': list(questions), 'employees': list(employees)})
     except Exception as e:
@@ -3193,14 +3194,17 @@ def AllocateFormView(request):
     if not user_name or not c_id:
         return JsonResponse({'error': 'Required session data not found'}, status=401)
 
+    form_name = request.GET.get('form_name')
+    if not form_name:
+        return JsonResponse({'error': 'Form name is required'}, status=400)
+
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            this_form = data.get('this_form')
             allocated_employees = data.get('allocated_employee')
             allocated_employee_str = ", ".join(allocated_employees)
 
-            custom_form = Custom_forms.objects.get(form_name=this_form, c_id=company_id)
+            custom_form = Custom_forms.objects.get(form_name=form_name, c_id=company_id)
             custom_form.alloc = allocated_employee_str
             custom_form.save()
 
@@ -3223,26 +3227,55 @@ def AllocateFormView(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
-def AddTextQuestionView(request):
+def AddTextQuestionFormView(request):
+    user_name = request.session.get('emp_name')
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+
+    if not user_name or not c_id:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    form_name = request.GET.get('form_name')
+    if not form_name:
+        return JsonResponse({'error': 'Form name is required'}, status=400)
+
     if request.method == 'POST':
-        this_form = request.POST.get('this_form')
-        label = request.POST.get('textBoxLabel')
-        type = request.POST.get('textBoxType')
-        ID = request.POST.get('textBoxIDandName')
+        data = json.loads(request.body)
+        label = data.get('question')
+        ID = data.get('ID')
+        type = data.get('Type')
         name = ID
 
+        if not label or not ID or not type:
+            return JsonResponse({'error': 'All fields are required'}, status=400)
+
+        if Custom_forms_questions.objects.filter(ID=ID, name=name, form_name=form_name, c_id=company_id).exists():
+                return JsonResponse({'error': 'Question with the same ID already exists'}, status=400)
+
+        formatted_form_name = form_name.replace(' ', '_').lower()
+        response_table_name = f"resp_{company_id}{formatted_form_name}"
+
         try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{response_table_name}' AND column_name='{name}'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE {response_table_name} ADD {name} VARCHAR(255);")
+                else:
+                    return JsonResponse({'error': f"Column '{name}' already exists in the table"}, status=400)
+
             custom_form_question = Custom_forms_questions.objects.create(
                 label=label,
                 type=type,
                 ID=ID,
                 name=name,
-                form_name=this_form,
-                c_id=request.session.get('c_id')
+                form_name=formatted_form_name,
+                c_id=c_id
             )
-            # Add column in responses table here
+            return JsonResponse({'success': 'Text question added successfully'}, status=201)
+        except IntegrityError as e:
+            return JsonResponse({'error': 'Database integrity error: ' + str(e)}, status=500)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': 'An unexpected error occurred: ' + str(e)}, status=500)
 
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
@@ -3251,26 +3284,54 @@ def AddTextQuestionView(request):
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def AddRadioQuestionView(request):
+    user_name = request.session.get('emp_name')
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+
+    if not user_name or not c_id:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    form_name = request.GET.get('form_name')
+    if not form_name:
+        return JsonResponse({'error': 'Form name is required'}, status=400)
+
     if request.method == 'POST':
-        this_form = request.POST.get('thisRadioForm')
-        label = request.POST.get('radioLabel')
-        ID = request.POST.get('radioIDandName')
+        data = json.loads(request.body)
+        label = data.get('radioLabel')
+        ID = data.get('radioID')
+        options_arr = data.get('radioOptionName')
+        options_str = ", ".join(options_arr) if options_arr else ''
         name = ID
-        options_arr = request.POST.getlist('radioOptionName[]')
-        options_str = ", ".join(options_arr)
+
+        if Custom_forms_questions.objects.filter(ID=ID, form_name=form_name, c_id=company_id).exists():
+            return JsonResponse({'error': 'Question with the same ID already exists'}, status=400)
+
+        formatted_form_name = form_name.replace(' ', '_').lower()
+        response_table_name = f"resp_{company_id}{formatted_form_name}"
 
         try:
+            with connection.cursor() as cursor:
+                cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{response_table_name}' AND column_name='{name}'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE {response_table_name} ADD {name} VARCHAR(255);")
+                else:
+                    return JsonResponse({'error': f"Column '{name}' already exists in the table"}, status=400)
+
+
             custom_form_question = Custom_forms_questions.objects.create(
                 label=label,
+                type='radio',
                 ID=ID,
                 name=name,
                 optionName=options_str,
-                form_name=this_form,
-                c_id=request.session.get('c_id')
+                form_name=formatted_form_name,
+                c_id=c_id
             )
-            # Add column in responses table here
+            return JsonResponse({'success': 'Radio question added successfully'}, status=201)
+        except IntegrityError as e:
+            return JsonResponse({'error': 'Database integrity error: ' + str(e)}, status=500)
         except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+            return JsonResponse({'error': 'An unexpected error occurred: ' + str(e)}, status=500)
 
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
