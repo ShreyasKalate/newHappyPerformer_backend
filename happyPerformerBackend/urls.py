@@ -82,6 +82,9 @@ urlpatterns = [
     path('HomeSalary', views.HomeSalary, name='HomeSalary'),
     path('SalaryRevisionHistory', views.SalaryRevisionHistory, name='SalaryRevisionHistory'),
     path('DisplaySalaryDetails', views.DisplaySalaryDetails, name='DisplaySalaryDetails'),
+    path('CustomForms/', views.CustomForms, name='CustomForms'),
+    path('EditFormView/', views.EditFormView, name='EditFormView'),
+    path('AllocateFormView/', views.AllocateFormView, name='AllocateFormView'),
 ]
 
 

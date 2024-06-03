@@ -170,7 +170,6 @@ def Register(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
-# @login_required
 def EmployeeMaster(request):
     company_id = request.session.get('c_id')
     print(company_id)
@@ -2549,33 +2548,6 @@ def ViewAllEnrollments(request):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
 
-# Custom Forms
-# @csrf_exempt
-# @role_required(['HR', 'Manager', 'Super Manager'])
-# def CustomForms(request):
-#     if request.method == 'POST':
-#         new_form_name = request.POST.get('newFormName')
-#         c_id = request.session.get('c_id')
-
-#         if CustomForms.objects.filter(form_name=new_form_name, c_id=c_id).exists():
-#             message = 'Form name already exists!'
-#         else:
-#             CustomForms.objects.create(form_name=new_form_name, c_id=c_id)
-#             message = 'Form created successfully'
-
-#     user_name = request.session.get('user_name')
-#     c_id = request.session.get('c_id')
-
-#     employee = Employee.objects.filter(emp_name=user_name).first()
-
-#     if not employee:
-#         return JsonResponse({'error': 'Employee not found'}, status=404)
-
-#     employee_forms = CustomForms.objects.filter(c_id=c_id)
-
-#     return render(request, 'manage_forms.html', {'employee_forms': employee_forms, 'message': message})
-
-
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def AdhocPayments(request):
@@ -3105,3 +3077,201 @@ def DisplaySalaryDetails(request):
 
     else:
         return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CustomForms(request):
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+    user_name = request.session.get('emp_name')
+
+    if not c_id or not user_name:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            forms = Custom_forms.objects.filter(c_id=company_id).order_by('-seq').values('form_name')
+            forms_list = [{'form_name': form['form_name']} for form in forms]
+            return JsonResponse({'forms': forms_list})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'POST':
+        form_name = request.POST.get('newFormName')
+        if not form_name:
+            return JsonResponse({'error': 'Form name is required'}, status=400)
+
+        try:
+            formatted_form_name = form_name.replace(' ', '_').lower()
+            response_table_name = f"resp_{company_id}{formatted_form_name}"
+
+            with connection.cursor() as cursor:
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS "{response_table_name}" (
+                        "emp_name" VARCHAR(255) PRIMARY KEY
+                    );
+                """)
+
+            if Custom_forms.objects.filter(c_id=company_id, form_name=formatted_form_name).exists():
+                return JsonResponse({'error': 'Form name already exists'}, status=400)
+
+            new_form = Custom_forms(c_id=company_id, form_name=formatted_form_name)
+            new_form.save()
+            return JsonResponse({'message': 'Form created successfully'})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        form_name = request.GET.get('form_name')
+        question_id = request.GET.get('idOfQuestion')
+
+        if not form_name:
+            return JsonResponse({'error': 'Form name is required'}, status=400)
+
+        try:
+            formatted_form_name = form_name.replace(' ', '_').lower()
+            response_table_name = f"resp_{company_id}{formatted_form_name}"
+
+            if question_id:
+                # Delete specific question of the form
+                Custom_forms_questions.objects.filter(ID=question_id, form_name=formatted_form_name, c_id=company_id).delete()
+
+                with connection.cursor() as cursor:
+                    cursor.execute(f"""
+                        ALTER TABLE "{response_table_name}" DROP COLUMN "{question_id}";
+                    """)
+                return JsonResponse({'message': 'Question deleted successfully'})
+            else:
+                # Delete the entire form
+                Custom_forms.objects.filter(form_name=formatted_form_name, c_id=company_id).delete()
+                Custom_forms_questions.objects.filter(form_name=formatted_form_name, c_id=company_id).delete()
+
+                with connection.cursor() as cursor:
+                    cursor.execute(f"""
+                        DROP TABLE IF EXISTS "{response_table_name}";
+                    """)
+                return JsonResponse({'message': 'Form deleted successfully'})
+        except Custom_forms.DoesNotExist:
+            return JsonResponse({'error': 'Form not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EditFormView(request):
+    user_name = request.session.get('emp_name')
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+
+    if not user_name or not c_id:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    form_name = request.GET.get('form_name')
+    if not form_name:
+        return JsonResponse({'error': 'Form name is required'}, status=400)
+
+    try:
+        questions = Custom_forms_questions.objects.filter(form_name=form_name, c_id=company_id).values()
+        employees = Employee.objects.filter(d_id__c_id=c_id).values_list('emp_name', flat=True)
+        return JsonResponse({'questions': list(questions), 'employees': list(employees)})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AllocateFormView(request):
+    user_name = request.session.get('emp_name')
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+
+    if not user_name or not c_id:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            this_form = data.get('this_form')
+            allocated_employees = data.get('allocated_employee')
+            allocated_employee_str = ", ".join(allocated_employees)
+
+            custom_form = Custom_forms.objects.get(form_name=this_form, c_id=company_id)
+            custom_form.alloc = allocated_employee_str
+            custom_form.save()
+
+            # Send emails to allocated employees
+            for emp_name in allocated_employees:
+                emp = Employee.objects.get(emp_name=emp_name)
+                to_email = emp.emp_emailid
+
+                # Send email code here
+
+            return JsonResponse({'message': 'Form allocated successfully'})
+        except Custom_forms.DoesNotExist:
+            return JsonResponse({'error': 'Form not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AddTextQuestionView(request):
+    if request.method == 'POST':
+        this_form = request.POST.get('this_form')
+        label = request.POST.get('textBoxLabel')
+        type = request.POST.get('textBoxType')
+        ID = request.POST.get('textBoxIDandName')
+        name = ID
+
+        try:
+            custom_form_question = Custom_forms_questions.objects.create(
+                label=label,
+                type=type,
+                ID=ID,
+                name=name,
+                form_name=this_form,
+                c_id=request.session.get('c_id')
+            )
+            # Add column in responses table here
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AddRadioQuestionView(request):
+    if request.method == 'POST':
+        this_form = request.POST.get('thisRadioForm')
+        label = request.POST.get('radioLabel')
+        ID = request.POST.get('radioIDandName')
+        name = ID
+        options_arr = request.POST.getlist('radioOptionName[]')
+        options_str = ", ".join(options_arr)
+
+        try:
+            custom_form_question = Custom_forms_questions.objects.create(
+                label=label,
+                ID=ID,
+                name=name,
+                optionName=options_str,
+                form_name=this_form,
+                c_id=request.session.get('c_id')
+            )
+            # Add column in responses table here
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+

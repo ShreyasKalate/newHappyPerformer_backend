@@ -222,8 +222,6 @@ class Custom_forms_questions(models.Model):
     form_name = models.CharField(max_length=255)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
-
-
 class Custom_letters(models.Model):
     seq = models.BigAutoField(primary_key=True)
     letter_name = models.CharField(max_length=250)
