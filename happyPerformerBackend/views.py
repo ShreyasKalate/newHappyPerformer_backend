@@ -1918,6 +1918,7 @@ def UpdatePassport(request):
         return JsonResponse({'error': 'Method not allowed!'}, status=405)
 
 
+@csrf_exempt
 def UpdatePan(request):
     emp_emailid = request.session.get('emp_emailid')
     if not emp_emailid:
