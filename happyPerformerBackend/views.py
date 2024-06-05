@@ -19,6 +19,9 @@ from django.db.models import Q
 from django.db.models import Sum
 from django.core.files.uploadedfile import UploadedFile
 from django.core.mail import send_mail
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 @csrf_exempt
 def Home(request):
@@ -479,6 +482,96 @@ def ExpenseReport(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+
+@csrf_exempt
+def Resign(request):
+    c_id = request.session.get('c_id')
+    emp_emailid = request.session.get('emp_emailid')
+
+    if not c_id or not emp_emailid:
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
+    if request.method == 'GET':
+        resignations = Resignation.objects.all()
+        resignation_data = []
+        for resignation in resignations:
+            resignation_data.append({
+                'emp_emailid': resignation.emp_emailid,
+                'submit_date': resignation.submit_date,
+                'exp_leave': resignation.exp_leave,
+                'leave_reason': resignation.leave_reason,
+                'leave_reason_2': resignation.leave_reason_2,
+                'leave_reason_3': resignation.leave_reason_3,
+                'leave_date': resignation.leave_date,
+                'notice_serve': resignation.notice_serve,
+                'settle_date': resignation.settle_date,
+                'shortfall_date': resignation.shortfall_date,
+                'exit_interview': resignation.exit_interview,
+                'last_working': resignation.last_working,
+                'status': resignation.status,
+                'approved_by': resignation.approved_by,
+                'notice_per': resignation.notice_per,
+            })
+
+        return JsonResponse(resignation_data, safe=False)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            emp_emailid = data.get('emp_emailid')
+            exp_leave = data.get('exp_leave')
+            leave_reason = data.get('leave_reason')
+            leave_reason_2 = data.get('leave_reason_2')
+            leave_reason_3 = data.get('leave_reason_3')
+            leave_date = data.get('leave_date')
+            settle_date = data.get('settle_date')
+            exit_interview = data.get('exit_interview')
+            last_working = data.get('last_working')
+            status = data.get('status')
+            approved_by = data.get('approved_by')
+
+            if not all([emp_emailid, exp_leave, leave_reason, exit_interview, last_working]):
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+            submit_date = timezone.now().date()
+            date1 = submit_date
+            date2 = timezone.now().date()
+            diff = (date2 - date1).days
+            notice_serve = abs(diff)
+            notice_per = 30
+            shortfall_date = max(0, 30 - notice_serve)
+
+            resignation, created = Resignation.objects.update_or_create(
+                emp_emailid=emp_emailid,
+                defaults={
+                    'submit_date': submit_date,
+                    'exp_leave': exp_leave,
+                    'leave_reason': leave_reason,
+                    'leave_reason_2': leave_reason_2,
+                    'leave_reason_3': leave_reason_3,
+                    'leave_date': leave_date,
+                    'notice_serve': notice_serve,
+                    'settle_date': settle_date,
+                    'shortfall_date': shortfall_date,
+                    'exit_interview': exit_interview,
+                    'last_working': last_working,
+                    'status': status,
+                    'approved_by': approved_by,
+                    'notice_per': notice_per,
+                }
+            )
+
+            response = {'message': 'Resignation created successfully'} if created else {'message': 'Resignation updated successfully'}
+            return JsonResponse({'status': 1, 'message': response})
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 @csrf_exempt
@@ -1264,9 +1357,159 @@ def RejectedLeaves(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+# Resignation Management
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
-def ResignationView(request):
+def AllResignation(request):
+    emp_emailid = request.session.get('emp_emailid')
+    c_id = request.session.get('c_id')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            resignations = Resignation.objects.filter(emp_emailid__d_id__c_id=c_id).select_related('emp_emailid', 'emp_emailid__d_id', 'job_info')
+
+            resignations_data = []
+
+            for resignation in resignations:
+                employee = resignation.emp_emailid
+                job_info = resignation.emp_emailid.job_info
+                if job_info:
+                    interval = (job_info.start_date - resignation.submit_date.date()).days
+                else:
+                    interval = None
+
+                resignation_data = {
+                    'emp_profile': employee.emp_profile.url,
+                    'emp_name': employee.emp_name,
+                    'emp_role': employee.emp_role,
+                    'emp_emailid': employee.emp_emailid,
+                    'department_name': employee.d_id.d_name,
+                    'job_title': job_info.job_title if job_info else '',
+                    'start_date': job_info.start_date if job_info else None,
+                    'leave_date': resignation.leave_date,
+                    'exp_leave': resignation.exp_leave,
+                    'shortfall_date': resignation.shortfall_date,
+                    'days_since_resignation': interval,
+                }
+
+                resignations_data.append(resignation_data)
+
+            return JsonResponse({'resignations': resignations_data}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AllExitClearance(request):
+    emp_emailid = request.session.get('emp_emailid')
+    c_id = request.session.get('c_id')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email ID not found in session'}, status=401)
+
+    try:
+        employees_in_company = Employee.objects.filter(d_id__c_id=c_id).values_list('emp_emailid', flat=True)
+
+        resignations = Resignation.objects.filter(
+            emp_emailid__in=employees_in_company,
+            status='Approved',
+            emp_emailid__d_id__c_id=c_id
+        ).select_related('emp_emailid', 'emp_emailid__d_id', 'clearance')
+
+        clearances_data = []
+
+        for resignation in resignations:
+            employee = resignation.emp_emailid
+            clearance = resignation.clearance
+            try:
+                job_info = Job_info.objects.get(emp_emailid=employee.emp_emailid)
+            except Job_info.DoesNotExist:
+                job_info = None
+
+            today = timezone.now().date()
+            interval = (today - resignation.submit_date.date()).days
+
+            clearance_status = clearance.status if clearance else 'Pending'
+
+            clearance_data = {
+                'emp_profile': employee.emp_profile.url,
+                'emp_name': employee.emp_name,
+                'emp_role': employee.emp_role,
+                'emp_emailid': employee.emp_emailid,
+                'department_name': employee.d_id.d_name,
+                'job_title': job_info.job_title if job_info else '',
+                'days_since_resignation': interval,
+                'clearance_status': clearance_status,
+            }
+
+            clearances_data.append(clearance_data)
+
+        return JsonResponse({'clearances': clearances_data}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AllFinalSettlement(request):
+    emp_emailid = request.session.get('emp_emailid')
+    c_id = request.session.get('c_id')
+
+    if not emp_emailid:
+        return JsonResponse({'error': 'Employee email ID not found in session'}, status=401)
+
+    try:
+        employees_in_company = Employee.objects.filter(d_id__c_id=c_id).values_list('emp_emailid', flat=True)
+
+        resignations = Resignation.objects.filter(
+            emp_emailid__in=employees_in_company,
+            clearance__status='Approved',
+            emp_emailid__d_id__c_id=c_id
+        ).select_related('emp_emailid', 'emp_emailid__d_id', 'clearance')
+
+        settlements_data = []
+
+        for resignation in resignations:
+            employee = resignation.emp_emailid
+            clearance = resignation.clearance
+            try:
+                job_info = Job_info.objects.get(emp_emailid=employee.emp_emailid)
+            except Job_info.DoesNotExist:
+                job_info = None
+
+            today = timezone.now().date()
+            interval = (today - resignation.submit_date.date()).days
+
+            clearance_status = clearance.status if clearance else 'Pending'
+
+            settlement_data = {
+                'emp_profile': employee.emp_profile.url,
+                'emp_name': employee.emp_name,
+                'emp_role': employee.emp_role,
+                'emp_emailid': employee.emp_emailid,
+                'department_name': employee.d_id.d_name,
+                'job_title': job_info.job_title if job_info else '',
+                'days_since_resignation': interval,
+                'clearance_status': clearance_status,
+            }
+
+            settlements_data.append(settlement_data)
+
+        return JsonResponse({'settlements': settlements_data}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EditResignation(request):
     c_id = request.session.get('c_id')
 
     if not c_id:
@@ -1298,8 +1541,151 @@ def ResignationView(request):
 
         return JsonResponse(resignation_data, safe=False)
 
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+
+            emp_emailid = data.get('emp_emailid')
+            leave_reason = data.get('leave_reason')
+            exp_leave = data.get('exp_leave')
+            notice_per = data.get('notice_per')
+            status = data.get('status')
+
+            if not all([emp_emailid, leave_reason, exp_leave, notice_per, status]):
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
+
+            resignation, created = Resignation.objects.update_or_create(
+                emp_emailid_id=emp_emailid,
+                defaults={
+                    'leave_reason': leave_reason,
+                    'exp_leave': exp_leave,
+                    'notice_per': notice_per,
+                    'status': status
+                }
+            )
+
+            response = {'message': 'Resignation created successfully'} if created else {'message': 'Resignation updated successfully'}
+            return JsonResponse(response, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EditExitClearnace(request):
+    c_id = request.session.get('c_id')
+    emp_emailid = request.session.get('emp_emailid')
+    given_to_email = request.GET.get('given_to_email')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            clearance = Clearance.objects.get(given_to=given_to_email)
+
+            clearance_data = {
+                'Accounts': clearance.Accounts,
+                'Hr': clearance.Hr,
+                'Hr_Plant': clearance.Hr_Plant,
+                'IT': clearance.IT,
+                'Project': clearance.Project,
+                'status': clearance.status,
+                'given_by': clearance.given_by.emp_emailid if clearance.given_by else None,
+                'given_to': clearance.emp_emailid.emp_emailid
+            }
+
+            return JsonResponse(clearance_data, status=200)
+
+        except Clearance.DoesNotExist:
+            return JsonResponse({'error': 'Clearance not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            clearance, created = Clearance.objects.get_or_create(emp_emailid=given_to_email)
+
+            if 'Accounts' in data:
+                clearance.Accounts = data['Accounts']
+            if 'Hr' in data:
+                clearance.Hr = data['Hr']
+            if 'Hr_Plant' in data:
+                clearance.Hr_Plant = data['Hr_Plant']
+            if 'IT' in data:
+                clearance.IT = data['IT']
+            if 'Project' in data:
+                clearance.Project = data['Project']
+
+            clearance.given_to = given_to_email
+            clearance.given_by = emp_emailid
+
+            clearance.save()
+
+            return JsonResponse({'success': 'Clearance updated successfully'}, status=200)
+
+        except Clearance.DoesNotExist:
+            return JsonResponse({'error': 'Clearance not found'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def GenerateFnf(request):
+    c_id = request.session.get('c_id')
+    emp_emailid = request.session.get('emp_emailid')
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+    personal_details = get_object_or_404(Personal_details, mail=emp_emailid)
+    job_info = get_object_or_404(Job_info, emp_emailid=emp_emailid)
+    resignation = get_object_or_404(Resignation, emp_emailid=emp_emailid)
+    bank_details = get_object_or_404(Bank_details, emp_emailid=emp_emailid)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="full_and_final_settlement_report.pdf"'
+
+    doc = SimpleDocTemplate(response, pagesize=letter)
+    elements = []
+
+    data = [
+        ["Name:", employee.emp_name, "Contact No.:", employee.emp_phone],
+        ["Email Id:", employee.emp_emailid, "Role:", employee.emp_role],
+        ["Gender:", personal_details.gender, "Birth Date:", personal_details.birth_date],
+        ["Department:", job_info.department, "Joining Date:", job_info.start_date],
+        ["Resigned On:", resignation.submit_date, "Leaving Date:", resignation.leave_date],
+        ["Bank Name:", bank_details.bank_name, "Account No.:", bank_details.acc_no],
+        ["Account Type:", bank_details.acc_type, "IFSC:", bank_details.ifsc],
+        ["Pan no:", bank_details.Pan_no]
+    ]
+
+    table = Table(data)
+    table.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                               ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                               ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                               ('FONTNAME', (0, 0), (-1, 0), 'Courier-Bold'),
+                               ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                               ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                               ('GRID', (0, 0), (-1, -1), 1, colors.black)]))
+
+    elements.append(table)
+    doc.build(elements)
+
+    return response
 
 
 @csrf_exempt

@@ -174,7 +174,7 @@ class Clearance(models.Model):
     IT = models.CharField(max_length=5, default='No')
     Project = models.CharField(max_length=5, default='No')
     status = models.CharField(max_length=20, default='Pending')
-    emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid', default=None)
+    given_to = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='given_to', null=True, default=None, related_name='clearnaces_to')
     given_by = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='given_by', null=True, default=None, related_name='clearances_given')
 
 
@@ -588,7 +588,6 @@ class Personal_details(models.Model):
     Contact = models.CharField(max_length=20, null=True, blank=True)
     emergency_name = models.CharField(max_length=60, null=True, blank=True)
     emergency_contact = models.CharField(max_length=60, null=True, blank=True)
-    mail = models.OneToOneField('Employee', on_delete=models.CASCADE, db_column='emp_emailid', to_field='emp_emailid')
     gender = models.CharField(max_length=20, null=True, blank=True)
     birth_date = models.DateField(null=True, blank=True)
     address = models.TextField(null=True, blank=True)
@@ -597,6 +596,7 @@ class Personal_details(models.Model):
     post_code = models.CharField(max_length=10, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
     edit = models.CharField(max_length=10, default='enable')
+    mail = models.OneToOneField('Employee', on_delete=models.CASCADE, db_column='emp_emailid', to_field='emp_emailid')
 
 
 class Poifiles_new(models.Model):
