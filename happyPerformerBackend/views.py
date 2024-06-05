@@ -3386,6 +3386,191 @@ def HomeSalary(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
+def AddSalary(request):
+    if request.method == 'POST':
+        emp_emailid = request.GET.get('emp_emaiid')
+
+        employee = Employee.objects.get(emp_emailid=emp_emailid)
+        personal_details = Personal_details.objects.get(emp_emailid=emp_emailid)
+        poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
+
+        age = datetime.now().year - personal_details.birth_date.year
+        actual80c = poifiles_new['80C_actualAmount']
+        actual80d = poifiles_new['80D_actualAmount']
+        actualoie = poifiles_new['OIE_actualAmount']
+        actualosi = poifiles_new['OSI_actualAmount']
+
+        eligible_deductions = actual80c + actual80d + actualoie + actualosi
+
+        annual_ctc = 0
+        remarks = ""
+        notes = ""
+
+        # Retrieve salary details
+        salary_instance = Salary.objects.filter(emp_emailid=emp_emailid).order_by('-sal_id').first()
+        if salary_instance:
+            annual_ctc = salary_instance.annual_ctc
+            remarks = salary_instance.remarks
+            notes = salary_instance.notes
+
+        payout_month = request.POST.get('valuedate', '')
+        effective_from = request.POST.get('effective_from', '')
+        revise = int(request.POST.get('revise', 0))
+
+        if not annual_ctc:
+            annual_ctc = int(request.POST.get('annual_ctc', 0))
+
+        annual_ctc += annual_ctc * (revise / 100)
+        monthly_ctc = annual_ctc / 12
+        basic = monthly_ctc * 0.4
+        hra = basic * 0.4
+        conveyance = 1600
+        da = 0
+        special_allowance = monthly_ctc - (hra + conveyance + da + basic)
+
+        annual_taxable = annual_ctc - eligible_deductions
+        tax_liability = TaxCalculationToAddSalary(age, annual_taxable)
+
+        monthly_tds = tax_liability / 12
+        monthly_epf = basic * 0.12
+        monthly_prof_tax = 200
+        net_salary = monthly_ctc - (monthly_tds + monthly_epf + monthly_prof_tax)
+
+        # Save salary details to database
+        salary_instance = Salary(
+            emp_emailid=emp_emailid,
+            basic=basic,
+            hra=hra,
+            conveyance=conveyance,
+            da=da,
+            special_allowance=special_allowance,
+            monthly_ctc=monthly_ctc,
+            annual_ctc=annual_ctc,
+            Eligible_Deductions=eligible_deductions,
+            Yearly_Taxable_Salary=annual_taxable,
+            otal_Tax_Liability=tax_liability,
+            Monthly_TDS=monthly_tds,
+            Monthly_EPF=monthly_epf,
+            Monthly_Professional_Tax=monthly_prof_tax,
+            Net_Salary=net_salary,
+            payout_month=payout_month,
+            effective_from=effective_from,
+            notes=notes,
+            remarks=remarks,
+            revision=revise
+        )
+        salary_instance.save()
+        return JsonResponse({'message': 'Salary details saved successfully!'})
+
+    else:
+        emp_emailid = request.GET.get('emp_emailid')
+
+        # Retrieve employee details from models
+        employee = Employee.objects.get(emp_emailid=emp_emailid)
+        personal_details = Personal_details.objects.get(emp_emailid=emp_emailid)
+        poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
+
+        age = datetime.now().year - personal_details.birth_date.year
+        actual80c = poifiles_new.80C_actualAmount
+        actual80d = poifiles_new.80D_actualAmount
+        actualoie = poifiles_new.OIE_actualAmount
+        actualosi = poifiles_new.OSI_actualAmount
+
+        eligible_deductions = actual80c + actual80d + actualoie + actualosi
+
+        annual_ctc = 0
+        remarks = ""
+        notes = ""
+
+        # Retrieve salary details
+        salary_instance = Salary.objects.filter(emp_emailid=emp_emailid).order_by('-sal_id').first()
+        if salary_instance:
+            annual_ctc = salary_instance.annual_ctc
+            remarks = salary_instance.remarks
+            notes = salary_instance.notes
+
+        context = {
+            'employee': employee,
+            'personal_details': personal_details,
+            'poifiles_new': poifiles_new,
+            'age': age,
+            'eligible_deductions': eligible_deductions,
+            'annual_ctc': annual_ctc,
+            'remarks': remarks,
+            'notes': notes,
+        }
+
+        return JsonResponse(context)
+
+# Function to calculate tax while adding salary. Check Function above Name: AddSalary
+def tax_calculation_to_add_salary(age, annual_taxable):
+    tax = 0
+    tcredit = 0
+    surch = 0
+    mtr = 0
+
+    if age < 60:
+        if annual_taxable > 1000000:
+            tax = 112500 + (annual_taxable - 1000000) * 30 / 100
+        elif annual_taxable > 500000 and annual_taxable <= 1000000:
+            tax = 12500 + (annual_taxable - 500000) * 20 / 100
+        elif annual_taxable > 200000 and annual_taxable <= 500000:
+            tax = (annual_taxable - 250000) * 5 / 100
+        elif annual_taxable <= 250000:
+            tax = 0
+    elif age >= 80:
+        if annual_taxable > 1000000:
+            tax = 100000 + (annual_taxable - 1000000) * 30 / 100
+        elif annual_taxable > 500000 and annual_taxable <= 1000000:
+            tax = (annual_taxable - 500000) * 20 / 100
+        elif annual_taxable <= 500000:
+            tax = 0
+    elif age >= 60:
+        if annual_taxable > 1000000:
+            tax = 110000 + (annual_taxable - 1000000) * 30 / 100
+        elif annual_taxable > 500000 and annual_taxable <= 1000000:
+            tax = 10000 + (annual_taxable - 500000) * 20 / 100
+        elif annual_taxable > 250000 and annual_taxable <= 500000:
+            tax = (annual_taxable - 300000) * 5 / 100
+        elif annual_taxable < 300000:
+            tax = 0
+
+    if age < 60 and annual_taxable <= 500000 and tax > 0:
+        tcredit = tax
+
+    if age >= 60 and age < 80 and annual_taxable <= 500000 and tax > 0:
+        tcredit = tax
+
+    tax = tax - tcredit
+
+    if annual_taxable > 5000000 and annual_taxable <= 10000000:
+        surch = tax * 10 / 100
+        if surch > 0 and age < 60 and (annual_taxable * 1 - tax * 1.10) <= 3687500:
+            mtr = surch * 1 - (annual_taxable - 3687500 - tax)
+        if surch > 0 and age >= 60 and (annual_taxable - tax * 1.10) <= 3690000:
+            mtr = surch * 1 - (annual_taxable - 3690000 * 1 - tax * 1)
+        if surch > 0 and age >= 80 and (annual_taxable - tax * 1.10) <= 3700000:
+            mtr = surch - (annual_taxable - 3700000 * 1 - tax * 1)
+    if annual_taxable > 10000000:
+        surch = tax * 15 / 100
+        if surch > 0 and (age < 60) and (annual_taxable - tax * 1.15) <= 6906250:
+            mtr = surch - (annual_taxable - 6906250 * 1 - tax)
+        if surch > 0 and age >= 60 and (annual_taxable - tax * 1.15) <= 6909000:
+            mtr = surch - (annual_taxable - 6909000 * 1 - tax)
+        if surch > 0 and age >= 80 and (annual_taxable - tax * 1.15) <= 6920000:
+            mtr = surch - (annual_taxable - 6920000 * 1 - tax)
+    if annual_taxable <= 5000000:
+        surch = 0
+    surch = surch - mtr
+    ttax = tax + surch
+    ecess = ttax * .04
+    liab = ttax + ecess
+
+    return liab
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def SalaryRevisionHistory(request):
     c_id = request.session.get('c_id')
     if not c_id:

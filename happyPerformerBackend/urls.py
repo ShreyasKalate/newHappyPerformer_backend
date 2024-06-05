@@ -86,6 +86,7 @@ urlpatterns = [
     path('PayslipPayout', views.PayslipPayout, name='PayslipPayout'),
     path('GeneratePayslip/', views.GeneratePayslip, name='GeneratePayslip'),
     path('HomeSalary', views.HomeSalary, name='HomeSalary'),
+    path('AddSalary', views.AddSalary, name='AddSalary'),
     path('SalaryRevisionHistory', views.SalaryRevisionHistory, name='SalaryRevisionHistory'),
     path('DisplaySalaryDetails', views.DisplaySalaryDetails, name='DisplaySalaryDetails'),
     path('CustomForms/', views.CustomForms, name='CustomForms'),
