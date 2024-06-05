@@ -172,25 +172,6 @@ def Register(request):
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 
-@csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
-def EmployeeMaster(request):
-    company_id = request.session.get('c_id')
-    print(company_id)
-    if not company_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
-
-    employees = Employee.objects.filter(d_id__c_id=company_id).values(
-        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id', 'emp_profile'
-    )
-
-    data = {
-        'employees': list(employees)
-    }
-
-    return JsonResponse(data)
-
-
 # incomplete , need to complete this view and add session
 @csrf_exempt
 def Profile(request, id):
@@ -929,84 +910,35 @@ def AddNewEmployee(request):
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
-def EmployeeDetails(request):
-    company_id = request.session.get('c_id')
+def JDForms(request):
+    if request.method == 'POST':
+        res = request.POST.getlist('res[]')
+        role = request.POST.get('role')
+        sdate = request.POST.get('date')
+        emp_emails = request.POST.getlist('eemail[]')
 
-    if not company_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+        if not (res and role and sdate and emp_emails):
+            return JsonResponse({'error': 'All fields are required!'}, status=400)
 
-    if request.method == 'GET':
         try:
-            departments = Department.objects.filter(c_id=company_id).values('d_name', 'd_id')
-            dept_id = [d['d_id'] for d in departments]
-            employees = Employee.objects.filter(d_id__in=dept_id).values('emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role')
-            data = {
-                'employees': list(employees)
-            }
-            return JsonResponse(data)
+            sdate = datetime.datetime.strptime(sdate, '%Y-%m-%d').date()
+        except ValueError:
+            return JsonResponse({'error': 'Invalid date format!'}, status=400)
+
+        for emp_email in emp_emails:
+            if not Employee.objects.filter(emp_emailid=emp_email).exists():
+                return JsonResponse({'error': f'Employee with email {emp_email} does not exist!'}, status=400)
+
+        try:
+            jd_instance = Job_desc.objects.create(jd_name=role, sdate=sdate)
+
+            for emp_email in emp_emails:
+                for responsibility in res:
+                    Tasks.objects.create(job_desc_id=jd_instance, responsiblities=responsibility, emp_emailid=emp_email, sdate=sdate)
+
+            return JsonResponse({'message': 'Form submitted successfully!'})
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-
-    elif request.method == 'DELETE':
-        emp_emailid = request.GET.get('emp_emailid')
-        if not emp_emailid:
-            return JsonResponse({'error': 'Employee email ID is required'}, status=400)
-        try:
-            employee = Employee.objects.get(emp_emailid=emp_emailid)
-            employee.delete()
-            return JsonResponse({'message': 'Employee deleted successfully'})
-        except Employee.DoesNotExist:
-            return JsonResponse({'error': 'Employee not found'}, status=404)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
-
-
-@csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
-def AttendanceDetails(request):
-    c_id = request.session.get('c_id')
-
-    if not c_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
-
-    if request.method == 'GET':
-        try:
-            departments = Department.objects.filter(c_id=c_id).values_list('d_id', flat=True)
-            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
-            emp_emails = [e['emp_emailid'] for e in employees]
-            attendance_data = Attendance.objects.filter(emp_emailid__in=emp_emails).values('id','datetime_log', 'log_type', 'emp_emailid')
-
-            data = []
-            for attendance in attendance_data:
-                data.append({
-                    'id': attendance['id'],
-                    'emp_email': attendance['emp_emailid'],
-                    'date': attendance['datetime_log'],
-                    'log_type': attendance['log_type'],
-                    'time': attendance['datetime_log']
-                })
-            return JsonResponse({'data': data})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    elif request.method == 'DELETE':
-        id = request.GET.get('id')
-        if not id:
-            return JsonResponse({'error': 'Attendance ID is required'}, status=400)
-        try:
-            attendance = Attendance.objects.get(id=id)
-            attendance.delete()
-            return JsonResponse({'message': 'Attendance record deleted successfully'})
-        except Attendance.DoesNotExist:
-            return JsonResponse({'error': 'Attendance record not found'}, status=404)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 
 @csrf_exempt
@@ -3395,10 +3327,10 @@ def AddSalary(request):
         poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
 
         age = datetime.now().year - personal_details.birth_date.year
-        actual80c = poifiles_new['80C_actualAmount']
-        actual80d = poifiles_new['80D_actualAmount']
-        actualoie = poifiles_new['OIE_actualAmount']
-        actualosi = poifiles_new['OSI_actualAmount']
+        actual80c = poifiles_new.actualAmount_80C
+        actual80d = poifiles_new.actualAmount_80D
+        actualoie = poifiles_new.OIE_actualAmount
+        actualosi = poifiles_new.OSI_actualAmount
 
         eligible_deductions = actual80c + actual80d + actualoie + actualosi
 
@@ -3471,8 +3403,8 @@ def AddSalary(request):
         poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
 
         age = datetime.now().year - personal_details.birth_date.year
-        actual80c = poifiles_new.80C_actualAmount
-        actual80d = poifiles_new.80D_actualAmount
+        actual80c = poifiles_new.actualAmount_80C
+        actual80d = poifiles_new.actualAmount_80D
         actualoie = poifiles_new.OIE_actualAmount
         actualosi = poifiles_new.OSI_actualAmount
 
@@ -4052,3 +3984,105 @@ def EditLetterView(request):
 
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EmployeeDetails(request):
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            departments = Department.objects.filter(c_id=company_id).values('d_name', 'd_id')
+            dept_id = [d['d_id'] for d in departments]
+            employees = Employee.objects.filter(d_id__in=dept_id).values('emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role')
+            data = {
+                'employees': list(employees)
+            }
+            return JsonResponse(data)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        emp_emailid = request.GET.get('emp_emailid')
+        if not emp_emailid:
+            return JsonResponse({'error': 'Employee email ID is required'}, status=400)
+        try:
+            employee = Employee.objects.get(emp_emailid=emp_emailid)
+            employee.delete()
+            return JsonResponse({'message': 'Employee deleted successfully'})
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def AttendanceDetails(request):
+    c_id = request.session.get('c_id')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            departments = Department.objects.filter(c_id=c_id).values_list('d_id', flat=True)
+            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+            emp_emails = [e['emp_emailid'] for e in employees]
+            attendance_data = Attendance.objects.filter(emp_emailid__in=emp_emails).values('id','datetime_log', 'log_type', 'emp_emailid')
+
+            data = []
+            for attendance in attendance_data:
+                data.append({
+                    'id': attendance['id'],
+                    'emp_email': attendance['emp_emailid'],
+                    'date': attendance['datetime_log'],
+                    'log_type': attendance['log_type'],
+                    'time': attendance['datetime_log']
+                })
+            return JsonResponse({'data': data})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    elif request.method == 'DELETE':
+        id = request.GET.get('id')
+        if not id:
+            return JsonResponse({'error': 'Attendance ID is required'}, status=400)
+        try:
+            attendance = Attendance.objects.get(id=id)
+            attendance.delete()
+            return JsonResponse({'message': 'Attendance record deleted successfully'})
+        except Attendance.DoesNotExist:
+            return JsonResponse({'error': 'Attendance record not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EmployeeMaster(request):
+    company_id = request.session.get('c_id')
+    print(company_id)
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    employees = Employee.objects.filter(d_id__c_id=company_id).values(
+        'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id', 'emp_profile'
+    )
+
+    data = {
+        'employees': list(employees)
+    }
+
+    return JsonResponse(data)

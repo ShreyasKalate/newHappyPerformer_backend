@@ -13,7 +13,6 @@ urlpatterns = [
     path('logout/', views.Logout, name='logout'),
     path('register/', views.Register, name='register'),
     path('TermsAndConditions/', views.TermsAndConditions, name='terms'),
-    path('EmployeeMaster/', views.EmployeeMaster, name='employeemaster'),
     path('SopAndPolicies/', views.SopAndPolicies, name='soppolicies'),
     path('UpdateSelfratings/<int:sop_id>', views.UpdateSelfratings, name='UpdateSelfratings'),
     path('ApplyLeave', views.ApplyLeave, name='ApplyLeave'),
@@ -32,8 +31,7 @@ urlpatterns = [
     path('ReportingStructureForm', views.ReportingStructureForm, name='ReportingStructureForm'),
     path('CeoHrAnnouncements', views.CeoHrAnnouncements, name='CeoHrAnnouncements'),
     path('AddNewEmployee', views.AddNewEmployee, name='AddNewEmployee'),
-    path('EmployeeDetails', views.EmployeeDetails, name='EmployeeDetails'),
-    path('AttendanceDetails', views.AttendanceDetails, name='AttendanceDetails'),
+
     path('LeaveDashboard', views.LeaveDashboard, name='LeaveDashboard'),
     path('LeaveDetails', views.LeaveDetails, name='LeaveDetails'),
     path('ManageLeaveType', views.ManageLeaveType, name='ManageLeaveType'),
@@ -96,6 +94,9 @@ urlpatterns = [
     path('AddRadioQuestionView/', views.AddRadioQuestionView, name='AddRadioQuestionView'),
     path('CustomLetter/', views.CustomLetter, name='CustomLetter'),
     path('EditLetterView/', views.EditLetterView, name='EditLetterView'),
+    path('EmployeeDetails', views.EmployeeDetails, name='EmployeeDetails'),
+    path('AttendanceDetails', views.AttendanceDetails, name='AttendanceDetails'),
+    path('EmployeeMaster/', views.EmployeeMaster, name='employeemaster'),
 ]
 
 
