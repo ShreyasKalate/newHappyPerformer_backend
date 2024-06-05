@@ -18,6 +18,7 @@ from .decorators import role_required
 from django.db.models import Q
 from django.db.models import Sum
 from django.core.files.uploadedfile import UploadedFile
+from django.core.mail import send_mail
 
 @csrf_exempt
 def Home(request):
@@ -3336,3 +3337,147 @@ def AddRadioQuestionView(request):
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def CustomLetter(request):
+    company_id = request.session.get('c_id')
+    user_name = request.session.get('emp_name')
+
+    if not company_id or not user_name:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    c_id = get_object_or_404(Company, pk=company_id)
+    employee = get_object_or_404(Employee, emp_name=user_name)
+
+    if request.method == 'GET':
+        try:
+            letters = Custom_letters.objects.filter(c_id=c_id).order_by('-seq').values('letter_name')
+            if not letters.exists():
+                return JsonResponse({'message': 'No letters available. Please create a letter to see it here.'}, status=200)
+
+            letters_list = [{'letter_name': letter['letter_name'], 'display_name': letter['letter_name'].replace('_', ' ').title()} for letter in letters]
+            return JsonResponse({'letters': letters_list}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            new_letter_name = data.get('newLetterName')
+
+            if not new_letter_name:
+                return JsonResponse({'error': 'Letter name is required'}, status=400)
+
+            new_letter_name = new_letter_name.replace(' ', '_').lower()
+
+            if Custom_letters.objects.filter(letter_name=new_letter_name, c_id=c_id).exists():
+                return JsonResponse({'error': 'Letter name already exists!'}, status=400)
+
+            Custom_letters.objects.create(letter_name=new_letter_name, c_id=c_id)
+            return JsonResponse({'success': 'Letter created successfully'}, status=201)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    elif request.method == 'DELETE':
+        this_letter = request.GET.get('letter_name')
+
+        if not this_letter:
+            return JsonResponse({'error': 'Letter name is required'}, status=400)
+
+        formatted_letter_name = this_letter.replace(' ', '_').lower()
+
+        try:
+            letter_to_delete = get_object_or_404(Custom_letters, letter_name=formatted_letter_name, c_id=c_id)
+            letter_to_delete.delete()
+            return JsonResponse({'message': 'Letter deleted successfully'}, status=200)
+        except Custom_letters.DoesNotExist:
+            return JsonResponse({'error': 'Letter not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
+@csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
+def EditLetterView(request):
+    company_id = request.session.get('c_id')
+    user_name = request.session.get('emp_name')
+    emp_emailid = request.session.get('emp_emailid')
+    department_id = request.session.get('d_id')
+
+    if not company_id or not user_name or not department_id:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    company = get_object_or_404(Company, pk=company_id)
+    employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+
+    if request.method == 'GET':
+        this_letter = request.GET.get('letter_name')
+        if not this_letter:
+            return JsonResponse({'error': 'Letter name is required'}, status=400)
+
+        this_letter = this_letter.replace(' ', '_').lower()
+        custom_letter = get_object_or_404(Custom_letters, letter_name=this_letter, c_id=company)
+        departments = Department.objects.filter(c_id=company).values('d_id')
+
+        employees = []
+        for dept in departments:
+            emp_in_dept = Employee.objects.filter(Q(d_id=dept['d_id']) & ~Q(emp_role='HR')).values('emp_name', 'emp_emailid')
+            employees.extend(emp_in_dept)
+
+        return JsonResponse({
+            'letter_content': custom_letter.letter_content,
+            'letter_name': custom_letter.letter_name.replace('_', ' ').title(),
+            'employees': [{'name': emp['emp_name'], 'email': emp['emp_emailid']} for emp in employees]
+        }, status=200)
+
+    elif request.method == 'POST':
+        data = json.loads(request.body)
+        allocated_employee_emails = data.get('allocatedEmployeeEmails')
+        this_letter = data.get('thisLetter')
+
+        if not allocated_employee_emails or not this_letter:
+            return JsonResponse({'error': 'Both employee emails and letter name are required'}, status=400)
+
+        this_letter = this_letter.replace(' ', '_').lower()
+        allocated_employee_str = ', '.join(allocated_employee_emails)
+
+        try:
+            custom_letter = get_object_or_404(Custom_letters, letter_name=this_letter, c_id=company)
+            custom_letter.alloc = allocated_employee_str
+            custom_letter.save()
+
+            letter_content = custom_letter.letter_content
+            allEmailsArr = allocated_employee_emails
+            personalized_contents = []
+
+            for email in allEmailsArr:
+                emp = get_object_or_404(Employee, emp_emailid=email)
+                to_name = emp.emp_name
+                personalized_content = letter_content.replace("~NAME~", to_name)
+                personalized_contents.append(personalized_content)
+
+            combined_content = "\n\n".join(personalized_contents)
+            subject = custom_letter.letter_name.replace('_', ' ').title()
+
+            send_mail(
+                subject,
+                combined_content,
+                employee.emp_emailid,
+                allEmailsArr,
+                fail_silently=False,
+                html_message=combined_content
+            )
+
+            return JsonResponse({'success': 'Letters allocated and email sent successfully'}, status=201)
+
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {e}'}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)

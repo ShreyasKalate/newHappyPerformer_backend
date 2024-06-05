@@ -87,6 +87,8 @@ urlpatterns = [
     path('AllocateFormView/', views.AllocateFormView, name='AllocateFormView'),
     path('AddTextQuestionFormView/', views.AddTextQuestionFormView, name='AddTextQuestionFormView'),
     path('AddRadioQuestionView/', views.AddRadioQuestionView, name='AddRadioQuestionView'),
+    path('CustomLetter/', views.CustomLetter, name='CustomLetter'),
+    path('EditLetterView/', views.EditLetterView, name='EditLetterView'),
 ]
 
 

@@ -225,7 +225,6 @@ class Custom_forms_questions(models.Model):
 class Custom_letters(models.Model):
     seq = models.BigAutoField(primary_key=True)
     letter_name = models.CharField(max_length=250)
-    c_id = models.IntegerField()
     letter_content = models.TextField(null=True, default=None)
     alloc = models.CharField(max_length=250, null=True, default=None)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')

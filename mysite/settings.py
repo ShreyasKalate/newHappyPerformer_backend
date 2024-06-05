@@ -25,12 +25,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-x(5dx3mmj4*37yh956zl74#t=wvbuib)!87s7)lg&v!9h6sf)a'
 
-# SESSION_COOKIE_NAME = 'sessionid'
-# SESSION_COOKIE_HTTPONLY = True
-# SESSION_COOKIE_SECURE = False  # Set to True in production
-# SESSION_ENGINE = 'django.contrib.sessions.backends.db'
-
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -171,3 +165,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB
 
 LOGIN_URL = '/login/'
 
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'priyankjohn67@gmail.com'
+EMAIL_HOST_PASSWORD = 'xyyf ngyc xnoi jeeb'
