@@ -377,6 +377,74 @@ def FormsSubmitResponse(request):
 
 
 @csrf_exempt
+def Letters(request):
+    if 'emp_emailid' in request.session and 'c_id' in request.session:
+        emp_emailid = request.session['emp_emailid']
+        c_id = request.session['c_id']
+
+        try:
+            user_name = Employee.objects.get(emp_emailid=emp_emailid).emp_name
+            company = get_object_or_404(Company, pk=c_id)
+
+            allocated_letters = []
+
+            custom_letters = Custom_letters.objects.filter(c_id=company)
+
+            for letter in custom_letters:
+                allocated_emails = [email.strip() for email in letter.alloc.split(',') if email.strip()]
+                if allocated_emails and emp_emailid in allocated_emails:
+                    allocated_letters.append({
+                        'letter_name': letter.letter_name.replace('_', ' ').title()
+                    })
+
+            return JsonResponse({'allocated_letters': allocated_letters})
+
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+
+@csrf_exempt
+def FAQsView(request):
+    if request.method == 'GET':
+        faqs = Faqs.objects.all()
+
+        if not faqs:
+            return JsonResponse({'message': 'No FAQs pending'})
+
+        faqs_list = []
+        for faq in faqs:
+            faqs_list.append({
+                'faq_id': faq.faq_id,
+                'question': faq.question,
+                'answer': faq.answer if faq.answer else None,
+                'emp_emailid': faq.emp_emailid.emp_emailid,
+                'imp': faq.imp,
+                'c_id': faq.c_id.c_id,
+            })
+
+        return JsonResponse({'faqs': faqs_list})
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            faq_id = request.GET.get('faq_id')
+            faq, created = Faqs.objects.update_or_create(faq_id=faq_id, defaults=data)
+            return JsonResponse({'message': 'FAQ updated successfully' if not created else 'FAQ created successfully'})
+
+        except Exception as e:
+            return HttpResponseBadRequest({'error': str(e)})
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
 def ApplyLeave(request):
     if request.method == 'POST':
         try:
