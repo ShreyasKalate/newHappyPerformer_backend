@@ -210,7 +210,7 @@ class Course_employee(models.Model):
 class Custom_forms(models.Model):
     seq = models.BigAutoField(primary_key=True)
     form_name = models.CharField(max_length=255)
-    alloc = models.CharField(max_length=250, null=True, default=None)
+    alloc = models.TextField(max_length=250, null=True, default=None)
     c_id = models.ForeignKey('Company', on_delete=models.CASCADE, db_column='c_id')
 
 class Custom_forms_questions(models.Model):

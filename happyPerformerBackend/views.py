@@ -253,6 +253,130 @@ def UpdateSelfratings(request, sop_id):
 
 
 @csrf_exempt
+def Forms(request):
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+    user_name = request.session.get('emp_name')
+
+    if not c_id or not user_name:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            employee = get_object_or_404(Employee, emp_name=user_name, d_id__c_id=company_id)
+
+            allocated_forms = []
+
+            forms = Custom_forms.objects.filter(c_id=company_id)
+
+            for form in forms:
+                allocated_users = [user.strip() for user in form.alloc.split(',') if user.strip()]
+                if allocated_users and user_name in allocated_users:
+                    formatted_form_name = form.form_name.replace(' ', '_').lower()
+                    response_table_name = f"resp_{company_id}{formatted_form_name}"
+
+                    with connection.cursor() as cursor:
+                        cursor.execute(f"SELECT COUNT(*) FROM {response_table_name} WHERE emp_name = %s", [user_name])
+                        responded = cursor.fetchone()[0] > 0
+
+                    allocated_forms.append({
+                        'form_name': form.form_name,
+                        'responded': responded
+                    })
+
+            return JsonResponse({'forms': allocated_forms}, status=200)
+
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def FormReviewRespose(request):
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+    user_name = request.session.get('emp_name')
+
+    if not c_id or not user_name:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            form_name = request.GET.get('form_name')
+
+            if not form_name:
+                return JsonResponse({'error': 'Form name is required'}, status=400)
+
+            form = Custom_forms.objects.get(c_id=company_id, form_name = form_name)
+
+            formatted_form_name = form.form_name.replace(' ', '_').lower()
+            response_table_name = f"resp_{company_id}{formatted_form_name}"
+            response_data = []
+
+            with connection.cursor() as cursor:
+                cursor.execute(f"SELECT * FROM {response_table_name} WHERE emp_name = %s", [user_name])
+                response_row = cursor.fetchone()
+                if not response_row:
+                    return JsonResponse({'error': 'Response not found'}, status=404)
+
+                columns = [col[0] for col in cursor.description]
+                for col, val in zip(columns, response_row):
+                    if col != 'emp_name':
+                        cursor.execute(f"SELECT label FROM Custom_forms_questions WHERE ID = %s AND form_name = %s AND c_id = %s", [col, form_name, cid])
+                        question = cursor.fetchone()
+                        if question:
+                            response_data.append({'question': question[0], 'answer': val})
+
+            return JsonResponse({'response': response_data}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def FormsSubmitResponse(request):
+    company_id = request.session.get('c_id')
+    c_id = get_object_or_404(Company, pk=company_id)
+    user_name = request.session.get('emp_name')
+
+    if not c_id or not user_name:
+        return JsonResponse({'error': 'Required session data not found'}, status=401)
+
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            form_name = data.get('form_name')
+
+            if not form_name:
+                return JsonResponse({'error': 'Form name is required'}, status=400)
+
+            form = Custom_forms.objects.get(c_id=company_id, form_name = form_name)
+
+            formatted_form_name = form.form_name.replace(' ', '_').lower()
+            response_table_name = f"resp_{company_id}{formatted_form_name}"
+
+            columns = ', '.join(data.keys())
+            values = ', '.join(['%s'] * len(data))
+            query = f"INSERT INTO {response_table_name} ({columns}) VALUES ({values})"
+            params = list(data.values())
+
+            with connection.cursor() as cursor:
+                cursor.execute(query, params)
+
+            return JsonResponse({'message': 'Response submitted successfully'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
 def ApplyLeave(request):
     if request.method == 'POST':
         try:
@@ -366,7 +490,6 @@ def AddLoan(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
-
 
 
 @csrf_exempt
@@ -3602,13 +3725,14 @@ def CustomForms(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     elif request.method == 'POST':
-        form_name = request.POST.get('newFormName')
+        data = json.loads(request.body)
+        form_name = data.get('newFormName')
         if not form_name:
             return JsonResponse({'error': 'Form name is required'}, status=400)
 
         try:
             formatted_form_name = form_name.replace(' ', '_').lower()
-            response_table_name = f"resp_{company_id}{formatted_form_name}"
+            response_table_name = f"resp_{c_id}{formatted_form_name}"
 
             with connection.cursor() as cursor:
                 cursor.execute(f"""
@@ -3620,7 +3744,7 @@ def CustomForms(request):
             if Custom_forms.objects.filter(c_id=company_id, form_name=formatted_form_name).exists():
                 return JsonResponse({'error': 'Form name already exists'}, status=400)
 
-            new_form = Custom_forms(c_id=company_id, form_name=formatted_form_name)
+            new_form = Custom_forms(c_id=c_id, form_name=formatted_form_name)
             new_form.save()
             return JsonResponse({'message': 'Form created successfully'})
         except Exception as e:
