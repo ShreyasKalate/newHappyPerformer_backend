@@ -102,30 +102,12 @@ def Users(request):
     employees = Employee.objects.filter(d_id__c_id=company_id, emp_emailid=user_id).values(
         'emp_name', 'emp_emailid', 'emp_phone', 'emp_role', 'd_id', 'emp_profile'
     )
-    # try:
-    #     user_data = {
-    #         'id': user.emp_emailid,
-    #         'email': user.emp_emailid,
-    #         'name': user.emp_name,
-    #         'phone': user.emp_phone,
-    #         'role': user.emp_role,
-    #         'd_id': user.d_id.d_id,
-    #         'c_id': user.d_id.c_id.c_id,
-    #         'c_name': user.d_id.c_id.c_name
-    #     }
     data = {
         'employees': list(employees)
     }
-    print(company_id)
-    print(user_id)
-    print(employees)
-    print(data)
+
     return JsonResponse(data)
-    #     return JsonResponse(user_data, status=200)
-    # except Employee.DoesNotExist:
-    #     return JsonResponse({'error': 'User not found'}, status=404)
-    # except Exception as e:
-    #     return JsonResponse({'error': str(e)}, status=400)
+
 
 
 @csrf_exempt
@@ -140,6 +122,8 @@ def Logout(request):
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 
+# NOTE
+# ***Department name should contain Super Manager at last ***
 @csrf_exempt
 def Register(request):
     if request.method == 'POST':
@@ -172,7 +156,7 @@ def Register(request):
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
 
-# incomplete , need to complete this view and add session
+# incomplete , need to complete and add session
 @csrf_exempt
 def Profile(request, id):
     try:
@@ -1066,10 +1050,13 @@ def AddNewEmployee(request):
     if request.method == 'GET':
         emp_count = Employee.objects.filter(d_id__c_id=company_id).count()
         company_data = Company.objects.filter(c_id=company_id).values('payment_type', 'emp_limit').first()
+        departments = Department.objects.filter(c_id=company_id).values('d_id', 'd_name')
+
 
         response_data = {
             'emp_count': emp_count,
             'company': company_data,
+            'departments': list(departments)
         }
 
         return JsonResponse(response_data, status=200)

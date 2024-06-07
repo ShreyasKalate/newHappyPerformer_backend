@@ -36,7 +36,6 @@ urlpatterns = [
     path('ReportingStructureForm', views.ReportingStructureForm, name='ReportingStructureForm'),
     path('CeoHrAnnouncements', views.CeoHrAnnouncements, name='CeoHrAnnouncements'),
     path('AddNewEmployee', views.AddNewEmployee, name='AddNewEmployee'),
-
     path('LeaveDashboard', views.LeaveDashboard, name='LeaveDashboard'),
     path('LeaveDetails', views.LeaveDetails, name='LeaveDetails'),
     path('ManageLeaveType', views.ManageLeaveType, name='ManageLeaveType'),
