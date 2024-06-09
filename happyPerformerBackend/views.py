@@ -22,6 +22,7 @@ from django.core.mail import send_mail
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from django.core.exceptions import ObjectDoesNotExist
 
 @csrf_exempt
 def Home(request):
@@ -647,12 +648,15 @@ def Resign(request):
     if not c_id or not emp_emailid:
         return JsonResponse({'error': 'User not logged in'}, status=401)
 
+    email = get_object_or_404(Resignation, emp_emailid=emp_emailid)
+
     if request.method == 'GET':
         resignations = Resignation.objects.all()
+        print(resignations)
         resignation_data = []
         for resignation in resignations:
             resignation_data.append({
-                'emp_emailid': resignation.emp_emailid,
+                'emp_emailid': email,
                 'submit_date': resignation.submit_date,
                 'exp_leave': resignation.exp_leave,
                 'leave_reason': resignation.leave_reason,
@@ -668,7 +672,7 @@ def Resign(request):
                 'approved_by': resignation.approved_by,
                 'notice_per': resignation.notice_per,
             })
-
+        print(resignation_data)
         return JsonResponse(resignation_data, safe=False)
 
     elif request.method == 'POST':
@@ -787,6 +791,11 @@ def UploadMedia(request):
             descr = data.get('descr')
             course_id = data.get('course_id')
 
+            try:
+                course = Courses.objects.get(course_id=course_id)
+            except Courses.DoesNotExist:
+                return JsonResponse({'error': 'Course not found'}, status=404)
+
             existing_videos_count = Video.objects.filter(course_id=course_id).count()
             if existing_videos_count > 1:
                 return JsonResponse({'message': 'Video with the same details already exists.'}, status=400)
@@ -794,7 +803,7 @@ def UploadMedia(request):
             video = Video.objects.create(
                 location=location,
                 descr=descr,
-                course_id=course_id,
+                course_id=course,
                 # video_name=video_name
             )
 
@@ -1819,10 +1828,11 @@ def DisplayTraining(request):
 
 # Pages section
 @csrf_exempt
+# @role_required(['HR', 'Manager', 'Super Manager'])
 def CreateCase(request):
     user_id = request.session.get('user_id')
     company_id = request.session.get('c_id')
-
+    print(f"User ID: {user_id}, Company ID: {company_id}")
     if not user_id or not company_id:
         return JsonResponse({'error': 'User not logged in'}, status=401)
 
@@ -1830,19 +1840,15 @@ def CreateCase(request):
         try:
             data = json.loads(request.body)
 
-            create_for = data.get('create_for')
-            case_type = data.get('case_type')
-            case_title = data.get('case_title')
-            case_desc = data.get('case_desc')
+            create_for = data.get('createFor')
+            case_type = data.get('caseType')
+            case_title = data.get('caseTitle')
+            case_desc = data.get('detailedDescription')
 
             if not all([create_for, case_type, case_title, case_desc]):
                 return HttpResponseBadRequest("Missing required fields")
 
-            #Testing  # user_id = "abhi@gmail.com"
             employee = get_object_or_404(Employee, emp_emailid=user_id)
-
-            if employee.d_id.c_id.id != company_id:
-                return HttpResponseBadRequest("Unauthorized access")
 
             new_case = Case(
                 create_for=create_for,
@@ -3274,10 +3280,12 @@ def BankTransfer(request):
 def BankTransferUpdate(request):
     c_id = request.session.get('c_id')
     if not c_id:
+        print('Company ID not found in session')
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     month = request.GET.get('month')
     if not month:
+        print('Month parameter is required')
         return JsonResponse({'error': 'Month parameter is required'}, status=400)
 
     if request.method == 'POST':
@@ -3287,10 +3295,13 @@ def BankTransferUpdate(request):
             file_name_start = request.POST.get('filename')
             value_date = request.POST.get('valuedate')
 
+            print(f"Received data: narration={narration}, debit_account={debit_account}, file_name_start={file_name_start}, value_date={value_date}, month={month}")
+
             batch_id = Banktransferstatement.objects.all().count() + 1
 
             salaries = Salary.objects.filter(holdsalary=0, paymentmethod='bank', paid=0, payout_month=month)
             for salary in salaries:
+                print(f"Creating Banktransferstatement for {salary.emp_emailid.holder_name}")
                 Banktransferstatement.objects.create(
                     batchid=batch_id,
                     name=salary.emp_emailid.holder_name,
@@ -3310,13 +3321,17 @@ def BankTransferUpdate(request):
 
             salaries.update(paid=1)
 
+            print("Bank Transfer Statement generated successfully.")
             return JsonResponse({'message': 'Bank Transfer Statement Generated successfully.'}, status=200)
 
         except Exception as e:
+            print(f"Error during Bank Transfer Update: {str(e)}")
             return JsonResponse({'error': str(e)}, status=400)
 
     else:
+        print('Method not allowed')
         return JsonResponse({'error': 'Method not allowed'}, status=405)
+
 
 
 @csrf_exempt
@@ -3500,77 +3515,81 @@ def AddSalary(request):
     if request.method == 'POST':
         emp_emailid = request.GET.get('emp_emaiid')
 
-        employee = Employee.objects.get(emp_emailid=emp_emailid)
-        personal_details = Personal_details.objects.get(emp_emailid=emp_emailid)
-        poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
+        try:
+            employee = Employee.objects.get(emp_emailid=emp_emailid)
+            personal_details = Personal_details.objects.get(emp_emailid=emp_emailid)
+            poifiles_new = Poifiles_new.objects.get(emp_emailid=emp_emailid)
 
-        age = datetime.now().year - personal_details.birth_date.year
-        actual80c = poifiles_new.actualAmount_80C
-        actual80d = poifiles_new.actualAmount_80D
-        actualoie = poifiles_new.OIE_actualAmount
-        actualosi = poifiles_new.OSI_actualAmount
+            age = datetime.now().year - personal_details.birth_date.year
+            actual80c = poifiles_new.actualAmount_80C
+            actual80d = poifiles_new.actualAmount_80D
+            actualoie = poifiles_new.OIE_actualAmount
+            actualosi = poifiles_new.OSI_actualAmount
 
-        eligible_deductions = actual80c + actual80d + actualoie + actualosi
+            eligible_deductions = actual80c + actual80d + actualoie + actualosi
 
-        annual_ctc = 0
-        remarks = ""
-        notes = ""
+            annual_ctc = 0
+            remarks = ""
+            notes = ""
 
-        # Retrieve salary details
-        salary_instance = Salary.objects.filter(emp_emailid=emp_emailid).order_by('-sal_id').first()
-        if salary_instance:
-            annual_ctc = salary_instance.annual_ctc
-            remarks = salary_instance.remarks
-            notes = salary_instance.notes
+            # Retrieve salary details
+            salary_instance = Salary.objects.filter(emp_emailid=emp_emailid).order_by('-sal_id').first()
+            if salary_instance:
+                annual_ctc = salary_instance.annual_ctc
+                remarks = salary_instance.remarks
+                notes = salary_instance.notes
 
-        payout_month = request.POST.get('valuedate', '')
-        effective_from = request.POST.get('effective_from', '')
-        revise = int(request.POST.get('revise', 0))
+            payout_month = request.POST.get('payoutMonth', '')
+            effective_from = request.POST.get('effectiveFrom', '')
+            revise = int(request.POST.get('revision', 0))
 
-        if not annual_ctc:
-            annual_ctc = int(request.POST.get('annual_ctc', 0))
+            if not annual_ctc:
+                annual_ctc = int(request.POST.get('annualCTC', 0))
 
-        annual_ctc += annual_ctc * (revise / 100)
-        monthly_ctc = annual_ctc / 12
-        basic = monthly_ctc * 0.4
-        hra = basic * 0.4
-        conveyance = 1600
-        da = 0
-        special_allowance = monthly_ctc - (hra + conveyance + da + basic)
+            annual_ctc += annual_ctc * (revise / 100)
+            monthly_ctc = annual_ctc / 12
+            basic = monthly_ctc * 0.4
+            hra = basic * 0.4
+            conveyance = 1600
+            da = 0
+            special_allowance = monthly_ctc - (hra + conveyance + da + basic)
 
-        annual_taxable = annual_ctc - eligible_deductions
-        tax_liability = TaxCalculationToAddSalary(age, annual_taxable)
+            annual_taxable = annual_ctc - eligible_deductions
+            tax_liability = TaxCalculationToAddSalary(age, annual_taxable)
 
-        monthly_tds = tax_liability / 12
-        monthly_epf = basic * 0.12
-        monthly_prof_tax = 200
-        net_salary = monthly_ctc - (monthly_tds + monthly_epf + monthly_prof_tax)
+            monthly_tds = tax_liability / 12
+            monthly_epf = basic * 0.12
+            monthly_prof_tax = 200
+            net_salary = monthly_ctc - (monthly_tds + monthly_epf + monthly_prof_tax)
 
-        # Save salary details to database
-        salary_instance = Salary(
-            emp_emailid=emp_emailid,
-            basic=basic,
-            hra=hra,
-            conveyance=conveyance,
-            da=da,
-            special_allowance=special_allowance,
-            monthly_ctc=monthly_ctc,
-            annual_ctc=annual_ctc,
-            Eligible_Deductions=eligible_deductions,
-            Yearly_Taxable_Salary=annual_taxable,
-            otal_Tax_Liability=tax_liability,
-            Monthly_TDS=monthly_tds,
-            Monthly_EPF=monthly_epf,
-            Monthly_Professional_Tax=monthly_prof_tax,
-            Net_Salary=net_salary,
-            payout_month=payout_month,
-            effective_from=effective_from,
-            notes=notes,
-            remarks=remarks,
-            revision=revise
-        )
-        salary_instance.save()
-        return JsonResponse({'message': 'Salary details saved successfully!'})
+            # Save salary details to database
+            salary_instance = Salary(
+                emp_emailid=emp_emailid,
+                basic=basic,
+                hra=hra,
+                conveyance=conveyance,
+                da=da,
+                special_allowance=special_allowance,
+                monthly_ctc=monthly_ctc,
+                annual_ctc=annual_ctc,
+                Eligible_Deductions=eligible_deductions,
+                Yearly_Taxable_Salary=annual_taxable,
+                otal_Tax_Liability=tax_liability,
+                Monthly_TDS=monthly_tds,
+                Monthly_EPF=monthly_epf,
+                Monthly_Professional_Tax=monthly_prof_tax,
+                Net_Salary=net_salary,
+                payout_month=payout_month,
+                effective_from=effective_from,
+                notes=notes,
+                remarks=remarks,
+                revision=revise
+            )
+            salary_instance.save()
+            return JsonResponse({'message': 'Salary details saved successfully!'})
+
+        except ObjectDoesNotExist:
+            return JsonResponse({'error': 'Employee with the provided email ID does not exist'}, status=404)
 
     else:
         emp_emailid = request.GET.get('emp_emailid')
