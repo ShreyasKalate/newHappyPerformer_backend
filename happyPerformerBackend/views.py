@@ -1114,6 +1114,7 @@ def UpdateDeleteEmployee(request):
 
     elif request.method == 'DELETE':
         try:
+            email_id = request.GET.get('emailId')
             employee = Employee.objects.get(emp_emailid=email_id, d_id__c_id=company_id)
             employee.delete()
             return JsonResponse({'success': 'Employee deleted successfully'}, status=200)
@@ -2347,7 +2348,6 @@ def UpdateAdhaar(request):
             return JsonResponse({'error': 'Adhaar details not found!'}, status=404)
 
     elif request.method == 'POST':
-        # Requires Data in Post not in json format
         data = request.POST
         file = request.FILES.get('adhaar_pic')
 
