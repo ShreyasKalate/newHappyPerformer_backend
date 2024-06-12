@@ -524,7 +524,7 @@ def AddLoan(request):
 
         return JsonResponse({'loans': data})
 
-    elif request.method == 'POST' and 'apply' in request.POST:
+    elif request.method == 'POST':
         try:
             loan_data = json.loads(request.body)
             name = loan_data.get('name')
