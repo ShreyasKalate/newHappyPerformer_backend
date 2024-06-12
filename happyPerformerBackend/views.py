@@ -977,21 +977,17 @@ def ReportingStructureForm(request):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
 
-        print(selected_employees)
-        print(reporting_employee)
-
         if not selected_employees or not reporting_employee:
             return JsonResponse({'error': 'Select employees and a reporting employee first!'}, status=400)
 
         with transaction.atomic():
             try:
                 for emp_email in selected_employees:
-                    Reporting.objects.create(
+                    Reporting.objects.update_or_create(
                         c_id=company_id,
                         Reporting_from=emp_email,
-                        Reporting_to=reporting_employee
+                        defaults={'Reporting_to': reporting_employee}
                     )
-
                 return JsonResponse({'success': 'Reporting structure updated successfully'}, status=200)
             except Exception as e:
                 return JsonResponse({'error': str(e)}, status=500)
