@@ -409,6 +409,32 @@ def FAQsView(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            emp_emailid = data.get('emp_emailid')
+            question = data.get('question')
+
+            if not emp_emailid or not question:
+                return JsonResponse({'error': 'Email ID and question are required'}, status=400)
+
+            with transaction.atomic():
+                new_faq = Faqs.objects.create(
+                    c_id=c_id,
+                    emp_emailid=emp_emailid,
+                    question=question,
+                    answer='',
+                    imp=False
+                )
+                return JsonResponse({'success': 'FAQ added successfully', 'faq_id': new_faq.faq_id}, status=201)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 @csrf_exempt
 def ApplyLeave(request):
@@ -3003,44 +3029,6 @@ def FAQManagement(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=400)
-    # uncomment if required
-    # elif request.method == 'POST':
-    #     question = request.POST.get('question')
-    #     answer = request.POST.get('answer')
-    #     emp_emailid = request.POST.get('emp_emailid')
-    #     imp = request.POST.get('imp') == 'true'
-
-    #     if not question or not emp_emailid:
-    #         return JsonResponse({'error': 'Question and Employee Email ID are required'}, status=400)
-
-    #     try:
-    #         employee = Employee.objects.get(emp_emailid=emp_emailid)
-    #         faq = Faqs.objects.create(
-    #             question=question,
-    #             answer=answer,
-    #             emp_emailid=employee,
-    #             imp=imp,
-    #             c_id_id=c_id
-    #         )
-    #         return JsonResponse({'message': 'FAQ created successfully', 'faq_id': faq.faq_id})
-    #     except Employee.DoesNotExist:
-    #         return JsonResponse({'error': 'Employee not found'}, status=404)
-    #     except Exception as e:
-    #         return JsonResponse({'error': str(e)}, status=500)
-
-    # uncomment if required
-    # elif request.method == 'DELETE':
-    #     faq_id = request.GET.get('faq_id')
-    #     if not faq_id:
-    #         return JsonResponse({'error': 'FAQ ID is required'}, status=400)
-    #     try:
-    #         faq = Faqs.objects.get(faq_id=faq_id, c_id=c_id)
-    #         faq.delete()
-    #         return JsonResponse({'message': 'FAQ deleted successfully'})
-    #     except Faqs.DoesNotExist:
-    #         return JsonResponse({'error': 'FAQ not found'}, status=404)
-    #     except Exception as e:
-    #         return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
