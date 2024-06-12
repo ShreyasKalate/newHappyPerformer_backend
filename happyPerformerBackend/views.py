@@ -393,10 +393,12 @@ def Letters(request):
     else:
         return JsonResponse({'error': 'Required session data not found'}, status=401)
 
+
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def FAQsView(request):
     c_id = request.session.get('c_id')
+    emp_emailid = request.session.get('emp_emailid')
 
     if not c_id:
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
@@ -412,7 +414,6 @@ def FAQsView(request):
     elif request.method == 'POST':
         try:
             data = json.loads(request.body)
-            emp_emailid = data.get('emp_emailid')
             question = data.get('question')
 
             if not emp_emailid or not question:
@@ -679,7 +680,6 @@ def Resign(request):
                 'approved_by': resignation.approved_by,
                 'notice_per': resignation.notice_per,
             })
-        print(resignation_data)
         return JsonResponse(resignation_data, safe=False)
 
     elif request.method == 'POST':
