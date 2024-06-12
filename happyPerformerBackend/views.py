@@ -393,40 +393,21 @@ def Letters(request):
     else:
         return JsonResponse({'error': 'Required session data not found'}, status=401)
 
-
 @csrf_exempt
+@role_required(['HR', 'Manager', 'Super Manager'])
 def FAQsView(request):
+    c_id = request.session.get('c_id')
+
+    if not c_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
     if request.method == 'GET':
-        faqs = Faqs.objects.all()
-
-        if not faqs:
-            return JsonResponse({'message': 'No FAQs pending'})
-
-        faqs_list = []
-        for faq in faqs:
-            faqs_list.append({
-                'faq_id': faq.faq_id,
-                'question': faq.question,
-                'answer': faq.answer if faq.answer else None,
-                'emp_emailid': faq.emp_emailid.emp_emailid,
-                'imp': faq.imp,
-                'c_id': faq.c_id.c_id,
-            })
-
-        return JsonResponse({'faqs': faqs_list})
-
-    elif request.method == 'POST':
         try:
-            data = json.loads(request.body)
-            faq_id = request.GET.get('faq_id')
-            faq, created = Faqs.objects.update_or_create(faq_id=faq_id, defaults=data)
-            return JsonResponse({'message': 'FAQ updated successfully' if not created else 'FAQ created successfully'})
-
+            faqs = Faqs.objects.filter(c_id=c_id).values('faq_id', 'question', 'answer', 'emp_emailid', 'imp')
+            data = list(faqs)
+            return JsonResponse({'faqs': data})
         except Exception as e:
-            return HttpResponseBadRequest({'error': str(e)})
-
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=400)
+            return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -2989,23 +2970,39 @@ def CompensationPayrollCases(request):
 #         tasks = list(tasks_data)
 #         return JsonResponse(tasks_data, safe=False)
 
-
 @csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
 def FAQManagement(request):
-    c_id = request.session.get('c_id')
-
-    if not c_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
-
     if request.method == 'GET':
-        try:
-            faqs = Faqs.objects.filter(c_id=c_id).values('faq_id', 'question', 'answer', 'emp_emailid', 'imp')
-            data = list(faqs)
-            return JsonResponse({'faqs': data})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
+        faqs = Faqs.objects.all()
 
+        if not faqs:
+            return JsonResponse({'message': 'No FAQs pending'})
+
+        faqs_list = []
+        for faq in faqs:
+            faqs_list.append({
+                'faq_id': faq.faq_id,
+                'question': faq.question,
+                'answer': faq.answer if faq.answer else None,
+                'emp_emailid': faq.emp_emailid.emp_emailid,
+                'imp': faq.imp,
+                'c_id': faq.c_id.c_id,
+            })
+
+        return JsonResponse({'faqs': faqs_list})
+
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            faq_id = request.GET.get('faq_id')
+            faq, created = Faqs.objects.update_or_create(faq_id=faq_id, defaults=data)
+            return JsonResponse({'message': 'FAQ updated successfully' if not created else 'FAQ created successfully'})
+
+        except Exception as e:
+            return HttpResponseBadRequest({'error': str(e)})
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
     # uncomment if required
     # elif request.method == 'POST':
     #     question = request.POST.get('question')
@@ -3044,9 +3041,6 @@ def FAQManagement(request):
     #         return JsonResponse({'error': 'FAQ not found'}, status=404)
     #     except Exception as e:
     #         return JsonResponse({'error': str(e)}, status=500)
-
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 
 @csrf_exempt
