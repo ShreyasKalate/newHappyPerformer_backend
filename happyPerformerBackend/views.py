@@ -415,9 +415,8 @@ def FAQsView(request):
         try:
             data = json.loads(request.body)
             question = data.get('question')
-
-            if not emp_emailid or not question:
-                return JsonResponse({'error': 'Email ID and question are required'}, status=400)
+            emp_emailid = get_object_or_404(Employee, emp_emailid=emp_emailid)
+            c_id = get_object_or_404(Company, c_id=c_id)
 
             with transaction.atomic():
                 new_faq = Faqs.objects.create(
