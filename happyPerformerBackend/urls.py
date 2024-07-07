@@ -18,6 +18,7 @@ urlpatterns = [
     path('Forms/', views.Forms, name='Forms'),
     path('FormReviewRespose/', views.FormReviewRespose, name='FormReviewRespose'),
     path('FormsSubmitResponse/', views.FormsSubmitResponse, name='FormsSubmitResponse'),
+    path('Kra/', views.Kra, name='Kra'),
     path('Letters/', views.Letters, name='Letters'),
     path('FAQsView/', views.FAQsView, name='FAQsView'),
     path('ApplyLeave', views.ApplyLeave, name='ApplyLeave'),

@@ -236,6 +236,17 @@ def UpdateSelfratings(request, sop_id):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
+@csrf_exempt
+def Kra(request):
+    if request.method == 'GET':
+        kras = Kra.objects.all().values(
+            'kra_no', 'KRA', 'Weightage', 'KPI', 'Target', 'ratingsscale', 'ratings', 'selfratings', 'remarks', 'status', 'email_id', 'kra_id'
+        )
+        kra_list = list(kras) 
+        return JsonResponse(kra_list, safe=False)
+    else:
+        return JsonResponse({'error': 'Invalid HTTP method'}, status=400)
+
 
 @csrf_exempt
 def Forms(request):
