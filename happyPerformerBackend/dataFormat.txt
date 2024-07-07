@@ -1,0 +1,123 @@
+CreateCase
+{
+    "create_for": "Department B",
+    "case_type": "Type 2",
+    "case_title": "2nd Sample Case Title",
+    "case_desc": "2nd Sample case description"
+}
+
+MyCases
+{
+    "cases": [
+        {
+            "case_id": 3,
+            "create_for": "Department C",
+            "case_title": "3nd Sample Case Title",
+            "case_type": "Type 3",
+            "case_date": "Today",
+            "assigned_to": "Not Assigned",
+            "case_status": "New"
+        }
+    ]
+}
+
+faqs view (management section)
+{
+    "faqs": [
+        {
+            "faq_id": 2,
+            "question": "What never asks a question but gets answered all the time?",
+            "answer": "cellphone",
+            "emp_emailid": "lose@gmail.com",
+            "imp": true
+        }
+    ]
+}
+
+Enroll Employee (management section)
+get requests=>
+{
+    "courses": [
+        {
+            "course_title": "prathemsh"
+        },
+        {
+            "course_title": "Testing course"
+        }
+    ],
+    "employees": [
+        {
+            "emp_emailid": "p@gmail.com"
+        },
+        {
+            "emp_emailid": "lose@gmail.com"
+        },
+        {
+            "emp_emailid": "pb@gmail.com"
+        }
+    ]
+}
+post requests=>
+{
+    "course_id": 12,
+    "course_title": "Testing course",
+    "emp_emailid":"abhi@gmail.com"
+}
+
+ViewAllEnrollments
+get requests=>
+{
+    "enrollments": [
+        {
+            "id": 4,
+            "course_title": "advvsrgvfx",
+            "emp_emailid": "p@gmail.com"
+        },
+        {
+            "id": 15,
+            "course_title": "Testing course",
+            "emp_emailid": "pb@gmail.com"
+        }
+    ]
+}
+delete requests=>
+{
+    "id":12
+}
+
+SopAndPolicies
+{
+    "data": [
+        {
+            "ratings": 7,
+            "remark": "Great",
+            "sop_id": 2,
+            "selfratings": 5,
+            "sop_info": {
+                "sop_id": 2,
+                "type": "SOP",
+                "s_name": "sop policy testing file",
+                "sdate": "2024-05-12"
+            },
+            "files": [
+                "sop file dummy"
+            ]
+        },
+        {
+            "ratings": 10,
+            "remark": "me",
+            "sop_id": 5,
+            "selfratings": 2,
+            "sop_info": {
+                "sop_id": 5,
+                "type": "SOP",
+                "s_name": "sop testing 2",
+                "sdate": "2024-05-11"
+            },
+            "files": [
+                "dummy file"
+            ]
+        }
+    ]
+}
+
