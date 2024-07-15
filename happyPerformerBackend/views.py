@@ -242,7 +242,7 @@ def Kra(request):
         kras = Kra.objects.all().values(
             'kra_no', 'KRA', 'Weightage', 'KPI', 'Target', 'ratingsscale', 'ratings', 'selfratings', 'remarks', 'status', 'email_id', 'kra_id'
         )
-        kra_list = list(kras) 
+        kra_list = list(kras)
         return JsonResponse(kra_list, safe=False)
     else:
         return JsonResponse({'error': 'Invalid HTTP method'}, status=400)
@@ -446,26 +446,31 @@ def FAQsView(request):
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-
 @csrf_exempt
 def ApplyLeave(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            leavetype = data.get('leavetype')
-            fromdate = data.get('fromdate')
-            todate = data.get('todate')
-            description = data.get('description')
+            leavetype = data.get('leaveType')
+            fromdate = data.get('fromDate')
+            todate = data.get('toDate')
+            description = data.get('leaveDescription')
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
         emp_email = request.session.get('emp_emailid')
-        employee = Employee.objects.get(emp_emailid=emp_email)
+        if not emp_email:
+            return JsonResponse({'error': 'User not authenticated'}, status=401)
+
+        try:
+            employee = Employee.objects.get(emp_emailid=emp_email)
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'Employee not found'}, status=404)
 
         try:
             date1 = datetime.strptime(fromdate, "%Y-%m-%d")
             date2 = datetime.strptime(todate, "%Y-%m-%d")
-            days = (date2 - date1).days
+            days = (date2 - date1).days + 1  # Including both start and end date
         except ValueError:
             return JsonResponse({'error': 'Invalid date format'}, status=400)
 
@@ -483,7 +488,6 @@ def ApplyLeave(request):
         leave_limit = getattr(leave_count, leave_limit_field, 0)
 
         final = leave_type.Limit - leave_limit - days
-        print(final)
         if final < 0:
             return JsonResponse({'error': 'Exceeding leave limits'}, status=400)
 
@@ -502,6 +506,7 @@ def ApplyLeave(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 
 @csrf_exempt
