@@ -23,10 +23,20 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from django.core.exceptions import ObjectDoesNotExist
+import logging
+#added
+from django.contrib.auth.hashers import make_password,check_password
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+
+
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 def Home(request):
     return JsonResponse({"data":"Welcome to happy backsideeee hehe"})
+
 
 @csrf_exempt
 def MeetTheTeam(request):
@@ -43,7 +53,6 @@ def About(request):
 @csrf_exempt
 def TermsAndConditions(request):
     return JsonResponse({"data":"Terms and Conditions Page reached without any issues"})
-
 
 @csrf_exempt
 def Login(request):
@@ -138,10 +147,10 @@ def Register(request):
         emp_name = data.get('empName')
         emp_email = data.get('empMail')
         emp_phone = data.get('empNum')
+        emp_pwd = data.get('emp_pwd')
         emp_skills = data.get('empSkills')
 
         new_company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone)
-
         company_id = Company.objects.order_by('-pk').first()
 
         first_dept_id = None
@@ -150,11 +159,12 @@ def Register(request):
             if first_dept_id is None:
                 first_dept_id = Department.objects.order_by('-pk').first()
 
-        Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='Super Manager', emp_phone=emp_phone, d_id=first_dept_id)
+        Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='Super Manager', emp_phone=emp_phone, emp_pwd=emp_pwd, d_id=first_dept_id)
 
         return JsonResponse({'message': 'Company registration successful'}, status=201)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 
 # incomplete , need to complete and add session
@@ -4354,3 +4364,223 @@ def EmployeeMaster(request):
     }
 
     return JsonResponse(data)
+
+@csrf_exempt
+def social_submit_feedback(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            logger.debug(f"Received data: {data}")
+
+            emp_emailid = data.get('emp_emailid')
+            skill = data.get('skill')
+            from_email = data.get('from_email')
+            reason = data.get('reason')
+
+            if not emp_emailid or not skill or not from_email or not reason:
+                return JsonResponse({'error': 'All fields are required'}, status=400)
+
+            # Log the parsed data
+            logger.debug(f"Parsed emp_emailid: {emp_emailid}, skill: {skill}, from_email: {from_email}, reason: {reason}")
+
+            # Create and save feedback
+            feedback = Feedback(
+                emp_emailid=emp_emailid,
+                skill=skill,
+                from_email=from_email,
+                reason=reason
+            )
+            feedback.save()
+
+            logger.debug("Feedback saved successfully")
+            return JsonResponse({'message': 'Feedback submitted successfully'}, status=201)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON")
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except TypeError as e:
+            logger.error(f"TypeError occurred: {e}")
+            return JsonResponse({'error': 'TypeError occurred'}, status=500)
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
+    elif request.method == 'GET':
+        feedbacks = Feedback.objects.all().values('emp_emailid', 'skill', 'from_email', 'reason', 'date')
+        feedback_list = list(feedbacks)
+        return JsonResponse(feedback_list, safe=False)
+    else:
+        return JsonResponse({'error': 'Only GET and POST requests are allowed'}, status=405)
+    
+
+@csrf_exempt
+def social_save_reason(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            logger.debug(f"Received reason data: {data}")
+
+            emp_emailid = data.get('emp_emailid', '').strip()
+            reason = data.get('reason')
+
+            if not emp_emailid or not reason:
+                return JsonResponse({'error': 'Employee email and reason are required'}, status=400)
+
+            # Check if feedback already exists for this employee
+            feedback, created = Feedback.objects.get_or_create(
+                emp_emailid=emp_emailid,
+                defaults={'reason': reason}
+            )
+
+            if not created:
+                # Update the existing feedback with the new reason
+                feedback.reason = reason
+                feedback.save()
+
+            logger.debug("Reason saved successfully")
+            return JsonResponse({'success': 'Reason saved successfully'}, status=201)
+        
+        except Exception as e:
+            logger.error(f"Error saving reason: {e}")
+            return JsonResponse({'error': 'An error occurred while saving the reason'}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+
+@csrf_exempt
+def create_quiz(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        quiz_title = data.get('quizTitle')
+        course = data.get('course')
+        total_questions = data.get('totalQuestions')
+        marks_for_correct_answer = data.get('marksForCorrectAnswer')
+        marks_for_wrong_answer = data.get('marksForWrongAnswer')
+        total_marks = int(data.get('marksObtained', 0))
+        passing_marks = data.get('passingMarks')
+        time_limit = data.get('timeLimit')
+
+        quiz = Quiz(
+            title=quiz_title,
+            course_title=course,
+            total=total_questions,
+            correct=marks_for_correct_answer,
+            wrong=marks_for_wrong_answer,
+            passing=passing_marks,
+            total_marks=total_marks,
+            time=time_limit,
+            status='active',  # or any default status you want to set
+        )
+        quiz.save()
+
+        return JsonResponse({'message': 'Quiz created successfully'}, status=201)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=400)
+
+
+@csrf_exempt
+def allquiz(request):
+    if request.method == 'GET':
+        quizzes = Quiz.objects.all()
+        quiz_list = quizzes.values('id', 'title', 'course_title', 'total', 'total_marks', 'passing', 'time', 'status')
+        return JsonResponse(list(quiz_list), safe=False)
+    
+
+logging.basicConfig(level=logging.DEBUG)
+@csrf_exempt
+def markattendance(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            email = data.get('email')
+            log_type = data.get('log_type')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+
+            if not email:
+                return JsonResponse({'error': 'Email ID is required'}, status=400)
+
+            try:
+                employee = Employee.objects.get(emp_emailid=email)
+            except Employee.DoesNotExist:
+                return JsonResponse({'error': 'Employee does not exist'}, status=404)
+
+            # Create attendance record
+            Attendance.objects.create(
+                emp_emailid=employee,
+                log_type=log_type,
+                user_ip=request.META.get('REMOTE_ADDR'),
+                latitude=latitude,
+                longitude=longitude,
+                datetime_log=timezone.now(),
+                date_updated=timezone.now()
+            )
+
+            return JsonResponse({'message': 'Attendance punched successfully'})
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_settings(request):
+    try:
+        # Extract form data
+        emp_emailid = request.POST.get('email')
+        new_name = request.POST.get('name')
+        new_phone = request.POST.get('phone')
+        new_skills = request.POST.get('skills')
+        old_password = request.POST.get('oldPassword')
+        new_password = request.POST.get('password')
+        new_confirm_password = request.POST.get('confirmPassword')
+
+        # Validate required fields
+        if not emp_emailid:
+            return JsonResponse({'error': 'Email is required'}, status=400)
+        if old_password is None:
+            return JsonResponse({'error': 'Old password is required'}, status=400)
+        if new_password is None:
+            return JsonResponse({'error': 'New password is required'}, status=400)
+        if new_confirm_password is None:
+            return JsonResponse({'error': 'Confirm password is required'}, status=400)
+
+        logging.debug(f"Received data: email={emp_emailid}, name={new_name}, phone={new_phone}, skills={new_skills}, oldPassword={old_password}, password={new_password}, confirmPassword={new_confirm_password}")
+
+        try:
+            # Fetch the employee object
+            employee = Employee.objects.get(emp_emailid=emp_emailid)
+
+            # Update personal details
+            if new_name:
+                employee.emp_name = new_name
+            if new_phone:
+                employee.emp_phone = new_phone
+            if new_skills:
+                employee.emp_skills = new_skills
+
+            # Update password
+            if old_password and new_password and new_confirm_password:
+                logging.debug(f"Old password from request: {old_password}")
+                logging.debug(f"Employee's current password: {employee.emp_pwd}")
+                if employee.emp_pwd == old_password:  # Check if the old password matches
+                    if new_password == new_confirm_password:
+                        logging.debug("Old password matches, updating to new password")
+                        employee.emp_pwd = new_password  # Update to the new password (plain text storage)
+                    else:
+                        logging.debug("New passwords do not match")
+                        return JsonResponse({'error': 'Passwords do not match'}, status=400)
+                else:
+                    logging.debug("Old password is incorrect")
+                    return JsonResponse({'error': 'Old password is incorrect'}, status=400)
+
+            # Save the updated employee object
+            employee.save()
+            logging.debug("Employee saved successfully")
+
+            return JsonResponse({'message': 'Settings updated successfully'}, status=200)
+
+        except Employee.DoesNotExist:
+            logging.debug("Employee not found")
+            return JsonResponse({'error': 'Employee not found'}, status=404)
+
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")

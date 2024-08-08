@@ -23,10 +23,10 @@ class Department(models.Model):
 
 class Employee(models.Model):
     emp_name = models.CharField(max_length=30)
-    emp_emailid = models.EmailField(max_length=50, primary_key=True, default='A@gmail.com')
+    emp_emailid = models.EmailField(max_length=100, primary_key=True, default='A@gmail.com')
     emp_skills = models.CharField(max_length=150)
-    emp_role = models.CharField(max_length=50)
-    emp_pwd = models.CharField(max_length=15, default='changeme')
+    emp_role = models.CharField(max_length=100)
+    emp_pwd = models.CharField(max_length=100, default='changeme')  # Updated length
     emp_phone = models.CharField(max_length=11)
     emp_profile = models.ImageField(upload_to='profile/', validators=[validate_image_extension], default='profile.png')
     add_date = models.CharField(max_length=200, null=True, default=None)
@@ -34,6 +34,7 @@ class Employee(models.Model):
     Status = models.CharField(max_length=8, default='Active')
     likes = models.CharField(max_length=10000, default='0')
     d_id = models.ForeignKey('Department', on_delete=models.CASCADE, db_column='d_id')
+
 
 class Adhaar(models.Model):
     A_Id = models.BigAutoField(primary_key=True)
@@ -654,12 +655,13 @@ class Questions_static(models.Model):
     sn = models.IntegerField()
 
 class Quiz(models.Model):
-    id = models.IntegerField(primary_key=True)
+    # id = models.IntegerField(primary_key=True) django automatically generates id as primary key
     eid = models.TextField()
     title = models.CharField(max_length=100)
     course_title = models.CharField(max_length=100)
     correct = models.IntegerField()
     wrong = models.IntegerField()
+    total_marks = models.IntegerField(default=0)
     passing = models.IntegerField()
     total = models.IntegerField()
     time = models.BigIntegerField()

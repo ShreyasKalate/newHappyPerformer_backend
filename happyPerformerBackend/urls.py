@@ -53,15 +53,9 @@ urlpatterns = [
     path('EditResignation/', views.EditResignation, name='EditResignation'),
     path('EditExitClearnace/', views.EditExitClearnace, name='EditExitClearnace'),
     path('GenerateFnf/', views.GenerateFnf, name='GenerateFnf'),
-<<<<<<< Updated upstream
     path('DisplayTraining/', views.DisplayTraining, name='DisplayTraining'),
-    path('CreateCase', views.CreateCase, name='CreateCase'),
-    path('MyCases', views.MyCases, name='MyCases'),
-=======
-    path('DisplayTraining', views.DisplayTraining, name='DisplayTraining'),
     path('CreateCase/', views.CreateCase, name='CreateCase'),
     path('MyCases/', views.MyCases, name='MyCases'),
->>>>>>> Stashed changes
     path('UpdatePersonalDetails/', views.UpdatePersonalDetails, name='UpdatePersonalDetails'),
     path('UpdateJobDetails/', views.UpdateJobDetails, name='UpdateJobDetails'),
     path('UpdateBankDetails/', views.UpdateBankDetails, name='UpdateBankDetails'),
@@ -110,8 +104,14 @@ urlpatterns = [
     path('EmployeeDetails/', views.EmployeeDetails, name='EmployeeDetails'),
     path('AttendanceDetails/', views.AttendanceDetails, name='AttendanceDetails'),
     path('EmployeeMaster/', views.EmployeeMaster, name='employeemaster'),
+    #added
+    path('social/', views.social_submit_feedback, name='submit_feedback'),
+    path('social/social_reason/', views.social_save_reason, name='submit_reason'),
+    path('create-quiz/', views.create_quiz, name='create_quiz'),
+    path('allquiz/', views.allquiz, name='allquiz'),
+    path('markattendance/', views.markattendance, name='markattendance'),
+    path('settings/', views.update_settings, name='settings'),
 ]
-
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
