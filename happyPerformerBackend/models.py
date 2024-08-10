@@ -91,7 +91,7 @@ class Ans_static(models.Model):
 
 class Attendance(models.Model):
     id = models.BigAutoField(primary_key=True)
-    log_type = models.BooleanField(null=True, default=None)
+    log_type = models.CharField(max_length=10,default='Unknown')
     user_ip = models.CharField(max_length=200, null=True, default=None)
     latitude = models.CharField(max_length=200, null=True, default=None)
     longitude = models.CharField(max_length=200, null=True, default=None)

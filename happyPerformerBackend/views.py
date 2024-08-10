@@ -56,6 +56,7 @@ def TermsAndConditions(request):
 
 @csrf_exempt
 def Login(request):
+    
     if request.method == 'POST':
         if request.session.get('user_id'):
             return JsonResponse({'message': 'User already logged in'}, status=200)
@@ -4486,15 +4487,72 @@ def allquiz(request):
     
 
 logging.basicConfig(level=logging.DEBUG)
+
+#without login
+# @csrf_exempt
+# @login_required
+# def markattendance(request):
+#     if not request.user.is_authenticated:
+#         print("User not authenticated")
+#         print(f"Session Data: {request.session.items()}")
+#         return JsonResponse({'error': 'User not authenticated'}, status=403)
+
+#     print("User authenticated")
+
+#     if request.method == 'POST':
+#         try:
+#             data = json.loads(request.body)
+#             email = data.get('email')
+#             log_type = data.get('log_type')
+#             latitude = data.get('latitude')
+#             longitude = data.get('longitude')
+
+#             if not email:
+#                 return JsonResponse({'error': 'Email ID is required'}, status=400)
+
+#             try:
+#                 employee = Employee.objects.get(emp_emailid=email)
+#             except Employee.DoesNotExist:
+#                 return JsonResponse({'error': 'Employee does not exist'}, status=404)
+
+#             # Create attendance record
+#             Attendance.objects.create(
+#                 emp_emailid=employee,
+#                 log_type=log_type,
+#                 user_ip=request.META.get('REMOTE_ADDR'),
+#                 latitude=latitude,
+#                 longitude=longitude,
+#                 datetime_log=timezone.now(),
+#                 date_updated=timezone.now()
+#             )
+
+#             return JsonResponse({'message': 'Attendance punched successfully'})
+#         except json.JSONDecodeError:
+#             return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+#     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 @csrf_exempt
 def markattendance(request):
     if request.method == 'POST':
+        # Check if user is authenticated
+        user_email = request.session.get('user_id')
+        if not user_email:
+            return JsonResponse({'error': 'User not authenticated'}, status=403)
+        
         try:
+            # Retrieve the user from the Employee model
+            user = Employee.objects.get(emp_emailid=user_email)
+
+            # Load the request body
             data = json.loads(request.body)
             email = data.get('email')
             log_type = data.get('log_type')
             latitude = data.get('latitude')
             longitude = data.get('longitude')
+
+            # Validate the email
+            if email != user_email:
+                return JsonResponse({'error': 'Cannot mark attendance for a different user'}, status=403)
 
             if not email:
                 return JsonResponse({'error': 'Email ID is required'}, status=400)
@@ -4516,9 +4574,11 @@ def markattendance(request):
             )
 
             return JsonResponse({'message': 'Attendance punched successfully'})
+        
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON format'}, status=400)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 @csrf_exempt
 @require_http_methods(["POST"])
