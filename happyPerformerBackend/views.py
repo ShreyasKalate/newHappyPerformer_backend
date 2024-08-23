@@ -25,11 +25,29 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from django.core.exceptions import ObjectDoesNotExist
 import logging
 #added
+from functools import wraps
 
 from django.utils.decorators import method_decorator
 
 
 logger = logging.getLogger(__name__)
+
+# decorators
+# def role_required(allowed_roles):
+#     def decorator(view_func):
+#         @wraps(view_func)
+#         def _wrapped_view(request, *args, **kwargs):
+#             if not request.user.is_authenticated:
+#                 return JsonResponse({'error': 'Authentication required'}, status=401)
+            
+#             user_role = getattr(request.user, 'emp_role', None)
+#             if user_role not in allowed_roles:
+#                 return JsonResponse({'error': 'Permission denied'}, status=403)
+            
+#             return view_func(request, *args, **kwargs)
+#         return _wrapped_view
+#     return decorator
+
 
 @csrf_exempt
 def Home(request):
@@ -136,33 +154,68 @@ def Logout(request):
 @csrf_exempt
 def Register(request):
     if request.method == 'POST':
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
 
-        name = data.get('companyName')
-        addr = data.get('companyAddress')
-        phone = data.get('companyPhone')
-        dept_names_str = data.get('deptName')
-        dept_names = [name.strip() for name in dept_names_str.split(',')]
-        emp_name = data.get('empName')
-        emp_email = data.get('empMail')
-        emp_phone = data.get('empNum')
-        emp_pwd = data.get('emp_pwd')
-        emp_skills = data.get('empSkills')
+            # Extract company details
+            name = data.get('companyName')
+            addr = data.get('companyAddress')
+            phone = data.get('companyPhone')
+            dept_names_str = data.get('deptName')
+            dept_names = [name.strip() for name in dept_names_str.split(',')]
 
-        new_company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone)
-        company_id = Company.objects.order_by('-pk').first()
+            # Extract employee details
+            emp_name = data.get('empName')
+            emp_email = data.get('empMail')
+            emp_phone = data.get('empNum')
+            emp_pwd = data.get('emp_pwd', 'changeme')  # Default to 'changeme' if not provided
+            emp_role = data.get('empRole', 'Super Manager')  # Default to 'Super Manager' if not provided
+            emp_skills = data.get('empSkills')
 
-        first_dept_id = None
-        for dept_name in dept_names:
-            new_dept = Department.objects.create(d_name=dept_name, c_id=company_id)
-            if first_dept_id is None:
-                first_dept_id = Department.objects.order_by('-pk').first()
+            # Check if the company with the exact details exists
+            try:
+                company = Company.objects.get(c_name=name, c_addr=addr, c_phone=phone)
+                created = False
+            except Company.DoesNotExist:
+                company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone)
+                created = True
 
-        Employee.objects.create(emp_name=emp_name, emp_emailid=emp_email, emp_skills=emp_skills, emp_role='Super Manager', emp_phone=emp_phone, emp_pwd=emp_pwd, d_id=first_dept_id)
+            # Only create departments if the company is newly created
+            if created:
+                # Create departments and get the first department's ID
+                first_dept_id = None
+                for dept_name in dept_names:
+                    # Create department with the Company instance
+                    new_dept = Department.objects.create(d_name=dept_name, c_id=company)
+                    if first_dept_id is None:
+                        first_dept_id = new_dept
+            else:
+                # If the company already exists, use the existing first department ID
+                first_dept_id = Department.objects.filter(c_id=company).first()
+                
+                if not first_dept_id:
+                    return JsonResponse({'error': 'No departments found for existing company'}, status=404)
 
-        return JsonResponse({'message': 'Company registration successful'}, status=201)
+            # Create the employee
+            Employee.objects.create(
+                emp_name=emp_name,
+                emp_emailid=emp_email,
+                emp_skills=emp_skills,
+                emp_role=emp_role,
+                emp_phone=emp_phone,
+                emp_pwd=emp_pwd,
+                d_id=first_dept_id
+            )
+
+            return JsonResponse({'message': 'Company registration successful'}, status=201)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
 
 
 
@@ -1153,14 +1206,14 @@ def UpdateDeleteEmployee(request):
 @role_required(['HR', 'Manager', 'Super Manager'])
 def UpdateEmployeeDetails(request):
     company_id = request.session.get('c_id')
-    emp_emailid = request.session.get('emp_emailid')
+    session_emp_emailid = request.session.get('emp_emailid')
 
     if not company_id:
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
         try:
-            employee = Employee.objects.get(emp_emailid=emp_emailid, d_id__c_id=company_id)
+            employee = Employee.objects.get(emp_emailid=session_emp_emailid, d_id__c_id=company_id)
             employee_data = {
                 'emp_name': employee.emp_name,
                 'emp_emailid': employee.emp_emailid,
@@ -1180,25 +1233,42 @@ def UpdateEmployeeDetails(request):
         except Employee.DoesNotExist:
             return JsonResponse({'error': 'Employee not found or you do not have permission to access it'}, status=404)
 
-    elif request.method == 'POST':
-        data = json.loads(request.body)
-        emp_name = data.get('emp_name')
-        emp_emailid = data.get('emp_emailid')
-        emp_phone = data.get('emp_phone')
-        d_id = data.get('d_id')
-        emp_skills = data.get('emp_skills')
-
+    elif request.method == 'PATCH':
         try:
-            employee = Employee.objects.get(emp_emailid=emp_emailid, d_id__c_id=company_id)
-            employee.emp_name = emp_name
-            employee.emp_phone = emp_phone
-            employee.d_id = Department.objects.get(d_id=d_id, c_id=company_id)
-            employee.emp_skills = emp_skills
+            data = json.loads(request.body)
+            emp_name = data.get('emp_name')
+            emp_phone = data.get('emp_phone')
+            d_id = data.get('d_id')
+            emp_skills = data.get('emp_skills')
+
+            # Fetch the employee based on the session email ID and company ID
+            employee = Employee.objects.get(emp_emailid=session_emp_emailid, d_id__c_id=company_id)
+
+            # Update only the fields provided in the PATCH request
+            if emp_name:
+                employee.emp_name = emp_name
+            if emp_phone:
+                employee.emp_phone = emp_phone
+            if d_id:
+                try:
+                    employee.d_id = Department.objects.get(d_id=d_id, c_id=company_id)
+                except Department.DoesNotExist:
+                    return JsonResponse({'error': 'Department not found for the provided company ID'}, status=404)
+            if emp_skills:
+                employee.emp_skills = emp_skills
+
             employee.save()
             return JsonResponse({'success': 'Employee details updated successfully'}, status=200)
+
         except Employee.DoesNotExist:
             return JsonResponse({'error': 'Employee not found or you do not have permission to update it'}, status=404)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
@@ -4268,15 +4338,24 @@ def EditLetterView(request):
 @role_required(['HR', 'Manager', 'Super Manager'])
 def EmployeeDetails(request):
     company_id = request.session.get('c_id')
+    logged_in_email = request.session.get('emp_emailid')  # Ensure user is logged in
 
     if not company_id:
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
+    if not logged_in_email:  # If the user is not logged in
+        return JsonResponse({'error': 'User not logged in'}, status=401)
+
     if request.method == 'GET':
         try:
-            departments = Department.objects.filter(c_id=company_id).values('d_name', 'd_id')
-            dept_id = [d['d_id'] for d in departments]
-            employees = Employee.objects.filter(d_id__in=dept_id).values('emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role')
+            # Fetch departments that belong to the company
+            departments = Department.objects.filter(c_id=company_id)
+
+            # Fetch all employees in the departments of the company
+            employees = Employee.objects.filter(d_id__in=departments).values(
+                'emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role'
+            )
+
             data = {
                 'employees': list(employees)
             }
@@ -4286,8 +4365,13 @@ def EmployeeDetails(request):
 
     elif request.method == 'DELETE':
         emp_emailid = request.GET.get('emp_emailid')
+
         if not emp_emailid:
             return JsonResponse({'error': 'Employee email ID is required'}, status=400)
+
+        # if emp_emailid != logged_in_email:
+        #     return JsonResponse({'error': 'You can only delete your own account'}, status=403)
+
         try:
             employee = Employee.objects.get(emp_emailid=emp_emailid)
             employee.delete()
@@ -4302,31 +4386,46 @@ def EmployeeDetails(request):
 
 
 @csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
 def AttendanceDetails(request):
-    c_id = request.session.get('c_id')
-
-    if not c_id:
-        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+    user_email = request.session.get('user_id')
+    if not user_email:
+        return JsonResponse({'error': 'User not authenticated'}, status=403)
 
     if request.method == 'GET':
         try:
-            departments = Department.objects.filter(c_id=c_id).values_list('d_id', flat=True)
-            employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
-            emp_emails = [e['emp_emailid'] for e in employees]
-            attendance_data = Attendance.objects.filter(emp_emailid__in=emp_emails).values('id','datetime_log', 'log_type', 'emp_emailid')
+            # Retrieve the user from the Employee model
+            user = Employee.objects.get(emp_emailid=user_email)
+
+            # Check if the user has the 'HR' role to view all attendance details
+            if user.emp_role == 'HR':
+                # Fetch attendance for all employees in the company
+                c_id = request.session.get('c_id')
+                if not c_id:
+                    return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+                
+                departments = Department.objects.filter(c_id=c_id).values_list('d_id', flat=True)
+                employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
+                emp_emails = [e['emp_emailid'] for e in employees]
+                attendance_data = Attendance.objects.filter(emp_emailid__in=emp_emails).values('id', 'datetime_log', 'log_type', 'emp_emailid')
+
+            else:
+                # Fetch only the authenticated user's attendance details
+                attendance_data = Attendance.objects.filter(emp_emailid=user_email).values('id', 'datetime_log', 'log_type', 'emp_emailid')
 
             data = []
             for attendance in attendance_data:
                 data.append({
                     'id': attendance['id'],
-                    
                     'emp_email': attendance['emp_emailid'],
                     'date': attendance['datetime_log'],
                     'log_type': attendance['log_type'],
                     'time': attendance['datetime_log']
                 })
+
             return JsonResponse({'data': data})
+
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'User does not exist'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
@@ -4345,6 +4444,8 @@ def AttendanceDetails(request):
 
     else:
         return JsonResponse({'error': 'Unsupported method'}, status=405)
+
+
 
 
 @csrf_exempt
