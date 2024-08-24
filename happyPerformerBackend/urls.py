@@ -111,6 +111,9 @@ urlpatterns = [
     path('allquiz/', views.allquiz, name='allquiz'),
     path('markattendance/', views.markattendance, name='markattendance'),
     path('settings/', views.update_settings, name='settings'),
+    path('send-otp/', views.send_otp, name='send_otp'),
+    path('verify-otp/', views.verify_otp, name='verify_otp'),
+    path('resetpassword/', views.reset_password, name='reset_password'),
 ]
 
 if settings.DEBUG:

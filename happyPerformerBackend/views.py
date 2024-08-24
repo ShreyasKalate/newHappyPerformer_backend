@@ -25,10 +25,11 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from django.core.exceptions import ObjectDoesNotExist
 import logging
 #added
+from datetime import timedelta
 from functools import wraps
-
 from django.utils.decorators import method_decorator
-
+import random, string
+from django.contrib.auth.hashers import make_password
 
 logger = logging.getLogger(__name__)
 
@@ -831,21 +832,24 @@ def AddCourses(request):
         try:
             course_title = request.POST.get('course_title')
             description = request.POST.get('description')
-            thumbnail = request.FILES.get('thumbnail')
+            thumbnail = request.FILES.get('thumbnail')  # Optional
 
-            if not all([course_title, description, thumbnail]):
+            if not all([course_title, description]):
                 return HttpResponseBadRequest("Missing required fields")
 
             company = get_object_or_404(Company, pk=company_id)
-            # c_name = company.c_name
 
-            course = Courses.objects.create(
-                course_title=course_title,
-                description=description,
-                thumbnail=thumbnail,
-                c_id=company,
-                c_name=company.c_name
-            )
+            course_data = {
+                'course_title': course_title,
+                'description': description,
+                'c_id': company,
+                'c_name': company.c_name
+            }
+
+            if thumbnail:
+                course_data['thumbnail'] = thumbnail  # Only add if provided
+
+            course = Courses.objects.create(**course_data)
 
             response_data = {
                 'message': 'Course added successfully',
@@ -857,6 +861,7 @@ def AddCourses(request):
             return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 
 @csrf_exempt
@@ -4757,3 +4762,119 @@ def update_settings(request):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return JsonResponse({'error': 'An internal error occurred'}, status=500)
+    
+
+def generate_otp():
+    return ''.join(random.choices(string.digits, k=6))
+
+@csrf_exempt
+def send_otp(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        email = data.get('email')
+
+        try:
+            # Verify if the email exists in the Employee model
+            user = Employee.objects.get(emp_emailid=email)
+            
+            # Generate OTP
+            otp = generate_otp()
+
+            # Check if an OTP record already exists for the given email
+            otp_record, created = OTPVerification.objects.update_or_create(
+                emp_emailid=email,
+                defaults={
+                    'otp': otp,
+                    'created_at': timezone.now()
+                    }
+                
+            )
+            
+            # Send the OTP via email
+            send_mail(
+                'Your OTP for Password Reset',
+                f'Your OTP is: {otp}',
+                settings.EMAIL_HOST_USER,
+                [email],
+                fail_silently=False,
+            )
+            
+            return JsonResponse({'message': 'OTP sent successfully!'}, status=200)
+        
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'Email not found'}, status=404)
+    
+    return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+@csrf_exempt
+def verify_otp(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        email = data.get('email')
+        otp = data.get('otp')
+
+        try:
+            # Fetch the OTPVerification object
+            otp_record = OTPVerification.objects.get(emp_emailid=email, otp=otp)
+            
+            # Get the current time
+            now = timezone.now()
+            created_at = otp_record.created_at
+            
+            # Set the OTP expiration time (e.g., 10 minutes from creation)
+            expiration_time = created_at + timedelta(minutes=10)
+            
+            # Debugging information
+            print(f"Current Time: {now}")
+            print(f"Created At: {created_at}")
+            print(f"Expiration Time: {expiration_time}")
+
+            # Check if the OTP is still valid
+            if now > expiration_time:
+                return JsonResponse({'error': 'OTP expired'}, status=400)
+            
+            # OTP is valid; allow the user to reset their password
+            return JsonResponse({'message': 'OTP verified successfully'}, status=200)
+        
+        except OTPVerification.DoesNotExist:
+            return JsonResponse({'error': 'Invalid OTP'}, status=400)
+    
+    return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+@csrf_exempt
+def reset_password(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        email = data.get('email')
+        new_password = data.get('new_password')
+
+        try:
+            user = Employee.objects.get(emp_emailid=email)
+            user.emp_pwd = new_password  # Make sure to hash the password if you're using a hashed password system
+            user.save()
+            return JsonResponse({'message': 'Password reset successful'}, status=200)
+        
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'User not found'}, status=404)
+    
+    return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+# @csrf_exempt
+# with hashing
+# def reset_password(request):
+#     if request.method == 'POST':
+#         data = json.loads(request.body)
+#         email = data.get('email')
+#         new_password = data.get('new_password')
+
+#         try:
+#             user = Employee.objects.get(emp_emailid=email)
+#             user.emp_pwd = make_password(new_password)
+#             user.save()
+#             return JsonResponse({'message': 'Password reset successful'}, status=200)
+        
+#         except Employee.DoesNotExist:
+#             return JsonResponse({'error': 'User not found'}, status=404)
+    
+#     return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)

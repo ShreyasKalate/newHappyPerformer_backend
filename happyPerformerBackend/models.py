@@ -863,3 +863,16 @@ class Work_exp(models.Model):
     gross_salary = models.FloatField(null=True, blank=True)
     leave_reason = models.TextField(null=True, blank=True)
     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')
+
+#added
+class OTPVerification(models.Model):
+    emp_emailid = models.EmailField(unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.emp_emailid} - {self.otp}"
+
+    class Meta:
+        verbose_name = "OTP Verification"
+        verbose_name_plural = "OTP Verifications"
