@@ -4847,18 +4847,23 @@ def reset_password(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         email = data.get('email')
-        new_password = data.get('new_password')
+        password = data.get('password')  # Update this line
 
         try:
             user = Employee.objects.get(emp_emailid=email)
-            user.emp_pwd = new_password  # Make sure to hash the password if you're using a hashed password system
+
+            if user.emp_pwd == password:
+                return JsonResponse({'error': 'New password cannot be the same as the current password'}, status=400)
+
+            user.emp_pwd = password
             user.save()
             return JsonResponse({'message': 'Password reset successful'}, status=200)
-        
+
         except Employee.DoesNotExist:
             return JsonResponse({'error': 'User not found'}, status=404)
-    
+
     return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 # @csrf_exempt
 # with hashing
