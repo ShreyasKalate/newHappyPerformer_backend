@@ -28,7 +28,7 @@ import logging
 from datetime import timedelta
 from functools import wraps
 from django.utils.decorators import method_decorator
-import random, string
+import random, string, uuid
 from django.contrib.auth.hashers import make_password
 
 logger = logging.getLogger(__name__)
@@ -4648,6 +4648,7 @@ def allquiz(request):
     
 
 
+
 @csrf_exempt
 def markattendance(request):
     if request.method == 'POST':
@@ -4655,15 +4656,19 @@ def markattendance(request):
         user_email = request.session.get('user_id')
         if not user_email:
             return JsonResponse({'error': 'User not authenticated'}, status=403)
-        
+
         try:
             # Retrieve the user from the Employee model
             user = Employee.objects.get(emp_emailid=user_email)
 
             # Load the request body
             data = json.loads(request.body)
+            
+            # Print the data for debugging
+            print("Received data:", data)
+
             email = data.get('email')
-            log_type = data.get('log_type')
+            log_type = data.get('log_type')  # Make sure this matches the field name in the request
             latitude = data.get('latitude')
             longitude = data.get('longitude')
 
@@ -4673,6 +4678,8 @@ def markattendance(request):
 
             if not email:
                 return JsonResponse({'error': 'Email ID is required'}, status=400)
+            if not log_type:
+                return JsonResponse({'error': 'Log type is required'}, status=400)
 
             try:
                 employee = Employee.objects.get(emp_emailid=email)
@@ -4691,11 +4698,12 @@ def markattendance(request):
             )
 
             return JsonResponse({'message': 'Attendance punched successfully'})
-        
+
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON format'}, status=400)
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -4859,6 +4867,7 @@ def reset_password(request):
             return JsonResponse({'error': 'User not found'}, status=404)
     
     return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 # @csrf_exempt
 # with hashing

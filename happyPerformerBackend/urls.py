@@ -109,6 +109,7 @@ urlpatterns = [
     path('social/social_reason/', views.social_save_reason, name='submit_reason'),
     path('create-quiz/', views.create_quiz, name='create_quiz'),
     path('allquiz/', views.allquiz, name='allquiz'),
+    # path('get_logged_in_user/', views.get_logged_in_user, name='get_logged_in_user'),
     path('markattendance/', views.markattendance, name='markattendance'),
     path('settings/', views.update_settings, name='settings'),
     path('send-otp/', views.send_otp, name='send_otp'),
