@@ -307,11 +307,12 @@ class Faqs(models.Model):
 
 class Feedback(models.Model):
     fid = models.BigAutoField(primary_key=True)
-    emp_emailid = models.CharField(max_length=50)
+    emp_emailid = models.ForeignKey(Employee, on_delete=models.CASCADE)
     skill = models.CharField(max_length=1000)
     from_email = models.CharField(max_length=30)
     reason = models.CharField(max_length=100)
     date = models.DateTimeField(auto_now_add=True)
+
 
 class Files(models.Model):
     id = models.BigAutoField(primary_key=True)

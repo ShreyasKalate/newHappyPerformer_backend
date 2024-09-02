@@ -109,7 +109,7 @@ DATABASES = {
        'ENGINE': 'django.db.backends.postgresql',
        'NAME': 'postgres',
        'USER': 'postgres',
-       'PASSWORD': '1234',
+       'PASSWORD': '3939',
        'HOST': 'localhost',
        'PORT': '5432',
     }
@@ -173,3 +173,19 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'dummyyWork122@gmail.com'
 EMAIL_HOST_PASSWORD = 'ndkv ujlh tpfm lgrd'
 # TO get the password: Go to your google account-> Manage google account-> Search "App passwords (Security)"-> Create password.
+
+
+#added
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',
+    },
+}
