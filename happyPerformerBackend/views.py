@@ -31,6 +31,7 @@ from django.utils.decorators import method_decorator
 import random, string
 from django.contrib.auth.hashers import make_password
 from django.utils.dateparse import parse_datetime
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 logger = logging.getLogger(__name__)
 
@@ -4364,16 +4365,46 @@ def EmployeeDetails(request):
 
     if request.method == 'GET':
         try:
-            # Fetch departments that belong to the company
+            # Fetch departments that belong to the logged-in user's company
             departments = Department.objects.filter(c_id=company_id)
 
-            # Fetch all employees in the departments of the company
-            employees = Employee.objects.filter(d_id__in=departments).values(
-                'emp_name', 'emp_emailid', 'emp_phone', 'd_id', 'emp_role'
+            # Fetch employees who are in the departments of the logged-in user's company
+            employees = Employee.objects.filter(d_id__in=departments)
+
+            # Apply search filter if search term is provided
+            search_term = request.GET.get('search', '')
+            if search_term:
+                employees = employees.filter(emp_name__icontains=search_term)
+
+            # Sorting logic
+            sort_column = request.GET.get('sort_column', 'emp_name')  # Default to 'emp_name' if not provided
+            sort_direction = request.GET.get('sort_direction', 'asc')
+            if sort_direction == 'desc':
+                sort_column = '-' + sort_column
+            employees = employees.order_by(sort_column)
+
+            # Pagination logic
+            page = request.GET.get('page', 1)
+            entries_per_page = request.GET.get('entries_per_page', 10)
+            paginator = Paginator(employees, entries_per_page)
+
+            try:
+                employees_page = paginator.page(page)
+            except PageNotAnInteger:
+                employees_page = paginator.page(1)
+            except EmptyPage:
+                employees_page = paginator.page(paginator.num_pages)
+
+            # Serialize employee data
+            employee_data = employees_page.object_list.values(
+                'emp_name', 'emp_emailid', 'emp_phone', 'emp_role'
             )
 
             data = {
-                'employees': list(employees)
+                'employees': list(employee_data),
+                'total_pages': paginator.num_pages,
+                'current_page': employees_page.number,
+                'total_entries': paginator.count,
             }
             return JsonResponse(data)
         except Exception as e:
@@ -4385,22 +4416,15 @@ def EmployeeDetails(request):
         if not emp_emailid:
             return JsonResponse({'error': 'Employee email ID is required'}, status=400)
 
-        # if emp_emailid != logged_in_email:
-        #     return JsonResponse({'error': 'You can only delete your own account'}, status=403)
-
         try:
-            employee = Employee.objects.get(emp_emailid=emp_emailid)
+            # Ensure the employee to be deleted belongs to the same company as the logged-in user
+            employee = Employee.objects.get(emp_emailid=emp_emailid, d_id__c_id=company_id)
             employee.delete()
             return JsonResponse({'message': 'Employee deleted successfully'})
         except Employee.DoesNotExist:
-            return JsonResponse({'error': 'Employee not found'}, status=404)
+            return JsonResponse({'error': 'Employee not found or does not belong to your company'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-
-    else:
-        return JsonResponse({'error': 'Unsupported method'}, status=405)
-
-
 
 @csrf_exempt
 def AttendanceDetails(request):
