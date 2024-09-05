@@ -32,6 +32,7 @@ import random, string
 from django.contrib.auth.hashers import make_password
 from django.utils.dateparse import parse_datetime
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 
 logger = logging.getLogger(__name__)
 
@@ -4423,6 +4424,8 @@ def EmployeeDetails(request):
         try:
             # Ensure the employee to be deleted belongs to the same company as the logged-in user
             employee = Employee.objects.get(emp_emailid=emp_emailid, d_id__c_id=company_id)
+            # Ensure the employee to be deleted belongs to the same company as the logged-in user
+            employee = Employee.objects.get(emp_emailid=emp_emailid, d_id__c_id=company_id)
             employee.delete()
             return JsonResponse({'message': 'Employee deleted successfully'})
         except Employee.DoesNotExist:
@@ -4430,6 +4433,8 @@ def EmployeeDetails(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
+    else:
+        return JsonResponse({'error': 'Unsupported method'}, status=405)
 
 
 
