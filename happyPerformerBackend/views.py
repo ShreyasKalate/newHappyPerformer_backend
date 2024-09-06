@@ -878,6 +878,44 @@ def AddCourses(request):
     else:
         # Only allow POST requests
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+    
+
+
+@csrf_exempt
+@role_required(['Super Manager', 'Manager', 'HR'])
+def GetCourses(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    # Check if user is logged in and has a valid company ID
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in or no company ID found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            # Fetch the company based on company_id from session
+            company = get_object_or_404(Company, pk=company_id)
+
+            # Fetch all courses for the logged-in user's company
+            courses = Courses.objects.filter(c_id=company)
+
+            # Prepare the response data
+            course_list = []
+            for course in courses:
+                course_list.append({
+                    'id': course.course_id,         # Ensure 'id' is used as expected in frontend
+                    'title': course.course_title,   # Ensure 'title' is used as expected in frontend
+                })
+
+            return JsonResponse({'courses': course_list}, status=200)
+
+        except Exception as e:
+            # Handle exceptions gracefully and return an error message
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        # Only allow GET requests
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 
 
@@ -940,9 +978,14 @@ def UploadPdf(request):
 
             course = get_object_or_404(Courses, pk=course_id)
 
-            # Save the PDF file to the 'pdfs/' directory inside MEDIA_ROOT
-            pdf_path = f'pdfs/{pdf_file.name}'
-            with open(f'{settings.MEDIA_ROOT}/{pdf_path}', 'wb+') as destination:
+            # Ensure the 'pdfs/' directory exists
+            pdf_dir = os.path.join(settings.MEDIA_ROOT, 'pdfs')
+            if not os.path.exists(pdf_dir):
+                os.makedirs(pdf_dir)
+
+            # Save the PDF file
+            pdf_path = os.path.join('pdfs', pdf_file.name)
+            with open(os.path.join(settings.MEDIA_ROOT, pdf_path), 'wb+') as destination:
                 for chunk in pdf_file.chunks():
                     destination.write(chunk)
 
@@ -958,6 +1001,7 @@ def UploadPdf(request):
             return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+    
 
 
 @csrf_exempt
