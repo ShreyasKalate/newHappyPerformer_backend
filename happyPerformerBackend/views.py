@@ -33,8 +33,7 @@ from django.contrib.auth.hashers import make_password
 from django.utils.dateparse import parse_datetime
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-
-logger = logging.getLogger(__name__)
+import os
 
 # decorators
 # def role_required(allowed_roles):
@@ -879,6 +878,48 @@ def AddCourses(request):
         # Only allow POST requests
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
+@csrf_exempt
+@role_required(['Super Manager', 'Manager', 'HR'])
+def GetCourses(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    # Check if user is logged in and has a valid company ID
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in or no company ID found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            # Fetch the company based on company_id from session
+            company = get_object_or_404(Company, pk=company_id)
+
+            # Fetch all courses for the logged-in user's company
+            courses = Courses.objects.filter(c_id=company)
+
+            # If no courses found, return a message
+            if not courses.exists():
+                return JsonResponse({'message': 'No courses found for this company'}, status=200)
+
+            # Prepare the response data
+            course_list = []
+            for course in courses:
+                course_list.append({
+                    'course_id': course.course_id,
+                    'course_title': course.course_title,
+                    'description': course.description,
+                    'thumbnail': course.thumbnail.url if course.thumbnail else None,
+                    'company_name': course.c_name,
+                })
+
+            return JsonResponse({'courses': course_list}, status=200)
+
+        except Exception as e:
+            # Handle exceptions gracefully and return an error message
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        # Only allow GET requests
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 
 @csrf_exempt
@@ -936,16 +977,26 @@ def UploadPdf(request):
             course_id = request.POST.get('course_id')
 
             if not pdf_file or not pdf_description or not course_id:
-                return HttpResponseBadRequest("Missing required fields")
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
 
-            course = get_object_or_404(Courses, pk=course_id)
+            try:
+                # Fetch the course using the provided course_id
+                course = Courses.objects.get(course_id=course_id)
+            except Courses.DoesNotExist:
+                return JsonResponse({'error': 'Course not found'}, status=404)
 
-            # Save the PDF file to the 'pdfs/' directory inside MEDIA_ROOT
-            pdf_path = f'pdfs/{pdf_file.name}'
-            with open(f'{settings.MEDIA_ROOT}/{pdf_path}', 'wb+') as destination:
+            # Ensure the 'pdfs/' directory exists
+            pdf_dir = os.path.join(settings.MEDIA_ROOT, 'pdfs')
+            if not os.path.exists(pdf_dir):
+                os.makedirs(pdf_dir)
+
+            # Save the PDF file
+            pdf_path = os.path.join('pdfs', pdf_file.name)
+            with open(os.path.join(settings.MEDIA_ROOT, pdf_path), 'wb+') as destination:
                 for chunk in pdf_file.chunks():
                     destination.write(chunk)
 
+            # Save PDF details in the database
             pdf = Pdf.objects.create(
                 pdf_name=pdf_file.name,
                 location=pdf_path,
@@ -958,6 +1009,7 @@ def UploadPdf(request):
             return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 
 @csrf_exempt
@@ -2004,19 +2056,24 @@ def GenerateFnf(request):
     return response
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 @csrf_exempt
 def DisplayTraining(request):
     c_id = request.session.get('c_id')
     emp_emailid = request.session.get('emp_emailid')
 
+    logger.info(f'c_id from session: {c_id}, emp_emailid from session: {emp_emailid}')
+
     if not c_id or not emp_emailid:
         return JsonResponse({'error': 'Company ID or Employee Email not found in session'}, status=401)
 
     if request.method == 'GET':
-        courses = Courses.objects.filter(c_id=c_id, course_employee__emp_emailid=emp_emailid,
-                                         course_employee__course_id__c_id=c_id,
-                                         course_employee__emp_emailid__d_id__c_id=c_id).distinct().values(
-                                            'course_id','course_title', 'thumbnail', 'description')
+        courses = Courses.objects.filter(
+            c_id=c_id,
+            course_employee__emp_emailid=emp_emailid
+        ).distinct().values('course_id', 'course_title', 'thumbnail', 'description')
 
         return JsonResponse(list(courses), safe=False, status=200)
     else:
@@ -3167,6 +3224,9 @@ def EnrollEmployee(request):
             course_id = data.get('course_id')
             course_title = data.get('course_title')
             emp_emailid = data.get('emp_emailid')
+
+            if not course_title:
+                return JsonResponse({'error': 'Course title cannot be empty'}, status=400)
 
             if not Employee.objects.filter(emp_emailid=emp_emailid, d_id__c_id=c_id).exists():
                 return JsonResponse({'error': 'Employee does not belong to the same company'}, status=400)
