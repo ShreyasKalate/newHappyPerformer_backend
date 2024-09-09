@@ -4905,6 +4905,11 @@ def update_settings_account(request):
         logging.error(f"An error occurred: {str(e)}")
         return JsonResponse({'error': 'An internal error occurred'}, status=500)
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import logging
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_settings_password(request):
@@ -4915,9 +4920,9 @@ def update_settings_password(request):
             return JsonResponse({'error': 'Authentication required'}, status=401)
 
         # Extract form data
-        old_password = request.POST.get('oldPassword')  # match with frontend
-        new_password = request.POST.get('newPassword')  # match with frontend
-        new_confirm_password = request.POST.get('confirmPassword')  # match with frontend
+        old_password = request.POST.get('oldPassword')
+        new_password = request.POST.get('newPassword')
+        new_confirm_password = request.POST.get('confirmPassword')
 
         # Validate password fields
         if not old_password:
@@ -4945,7 +4950,7 @@ def update_settings_password(request):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return JsonResponse({'error': 'An internal error occurred'}, status=500)
-
+    
 
     
 
