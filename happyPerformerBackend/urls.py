@@ -29,7 +29,6 @@ urlpatterns = [
     path('ExpenseReport', views.ExpenseReport, name='ExpenseReport'),
     path('Resign', views.Resign, name='Resign'),
     path('AddCourses/', views.AddCourses, name='AddCourses'),
-    path('getcourses/', views.GetCourses, name='GetCourses'),
     path('UploadMedia/', views.UploadMedia, name='UploadMedia'),
     path('UploadPdf/', views.UploadPdf, name='UploadPdf'),
     path('AddMediaContent/', views.AddMediaContent, name='AddMediaContent'),
