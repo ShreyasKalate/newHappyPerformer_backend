@@ -511,6 +511,7 @@ def FAQsView(request):
 
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
+
 @csrf_exempt
 def ApplyLeave(request):
     if request.method == 'POST':
@@ -540,14 +541,20 @@ def ApplyLeave(request):
             return JsonResponse({'error': 'Invalid date format'}, status=400)
 
         try:
-            leave_type = Leavetype.objects.get(LeaveType=leavetype)
+            leave_type = Leavetype.objects.get(LeaveType__iexact=leavetype)
         except Leavetype.DoesNotExist:
             return JsonResponse({'error': 'Leave type does not exist'}, status=400)
 
-        try:
-            leave_count = Leavecounttemp.objects.get(emp_emailid=emp_email)
-        except Leavecounttemp.DoesNotExist:
-            return JsonResponse({'error': 'Leave count for employee not found'}, status=400)
+        # Ensure Leavecounttemp record exists or create one with default values
+        leave_count, created = Leavecounttemp.objects.get_or_create(
+            emp_emailid=emp_email,
+            defaults={
+                'casualleave': 15,
+                'medicalleave': 15,
+                'lopleave': 365,
+                'earnedleave': 20  # Set a default value for earnedleave if needed
+            }
+        )
 
         leave_limit_field = leavetype.lower() + 'leave'
         leave_limit = getattr(leave_count, leave_limit_field, 0)
@@ -571,6 +578,8 @@ def ApplyLeave(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
 
 
 
