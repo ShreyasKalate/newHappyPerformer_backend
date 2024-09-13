@@ -886,6 +886,44 @@ def AddCourses(request):
     else:
         # Only allow POST requests
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+    
+
+
+@csrf_exempt
+@role_required(['Super Manager', 'Manager', 'HR'])
+def GetCourses(request):
+    user_id = request.session.get('user_id')
+    company_id = request.session.get('c_id')
+
+    # Check if user is logged in and has a valid company ID
+    if not user_id or not company_id:
+        return JsonResponse({'error': 'User not logged in or no company ID found'}, status=401)
+
+    if request.method == 'GET':
+        try:
+            # Fetch the company based on company_id from session
+            company = get_object_or_404(Company, pk=company_id)
+
+            # Fetch all courses for the logged-in user's company
+            courses = Courses.objects.filter(c_id=company)
+
+            # Prepare the response data
+            course_list = []
+            for course in courses:
+                course_list.append({
+                    'id': course.course_id,         # Ensure 'id' is used as expected in frontend
+                    'title': course.course_title,   # Ensure 'title' is used as expected in frontend
+                })
+
+            return JsonResponse({'courses': course_list}, status=200)
+
+        except Exception as e:
+            # Handle exceptions gracefully and return an error message
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        # Only allow GET requests
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 @csrf_exempt
 @role_required(['Super Manager', 'Manager', 'HR'])
@@ -1018,6 +1056,7 @@ def UploadPdf(request):
             return JsonResponse({'error': str(e)}, status=400)
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+    
 
 
 
@@ -4951,6 +4990,11 @@ def update_settings_account(request):
         logging.error(f"An error occurred: {str(e)}")
         return JsonResponse({'error': 'An internal error occurred'}, status=500)
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+import logging
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def update_settings_password(request):
@@ -4961,9 +5005,9 @@ def update_settings_password(request):
             return JsonResponse({'error': 'Authentication required'}, status=401)
 
         # Extract form data
-        old_password = request.POST.get('oldPassword')  # match with frontend
-        new_password = request.POST.get('newPassword')  # match with frontend
-        new_confirm_password = request.POST.get('confirmPassword')  # match with frontend
+        old_password = request.POST.get('oldPassword')
+        new_password = request.POST.get('newPassword')
+        new_confirm_password = request.POST.get('confirmPassword')
 
         # Validate password fields
         if not old_password:
@@ -4991,7 +5035,7 @@ def update_settings_password(request):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return JsonResponse({'error': 'An internal error occurred'}, status=500)
-
+    
 
     
 
