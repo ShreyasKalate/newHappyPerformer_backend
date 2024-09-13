@@ -52,6 +52,7 @@ SESSION_COOKIE_HTTPONLY = True  # Same as 'httpOnly: true' in Express
 SESSION_COOKIE_SECURE = False  # Set to True in production
 SESSION_SAVE_EVERY_REQUEST = False  # Same as 'resave: false' in Express
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # Session will not expire when the browser closes
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Application definition
 

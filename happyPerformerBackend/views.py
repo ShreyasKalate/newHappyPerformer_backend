@@ -1410,7 +1410,7 @@ def LeaveDashboard(request):
                 'lid': leave.id,
                 'emp_name': leave.emp_emailid.emp_name,
                 'emp_emailid': leave.emp_emailid.emp_emailid,
-                'LeaveType': leave.LeaveType_id,
+                'LeaveType': leave.LeaveType.LeaveType,
                 'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
                 'Status': leave.Status,
             }
@@ -1427,25 +1427,34 @@ def LeaveDashboard(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
 def LeaveDetails(request):
+    logging.debug(f"Received request method: {request.method}")
+
     if request.method == 'GET':
         try:
             leave_id = request.GET.get('id')
+            logging.debug(f"Leave ID: {leave_id}")
             if not leave_id:
                 return JsonResponse({'error': 'Leave ID is required'}, status=400)
 
             company_id = request.session.get('c_id')
+            logging.debug(f"Company ID from session: {company_id}")
 
             if not company_id:
                 return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
             leave_dict = Tblleaves.objects.filter(id=leave_id).values(
-                'id', 'LeaveType', 'ToDate', 'FromDate', 'Description', 'PostingDate', 'Status',
+                'id', 'LeaveType__LeaveType', 'ToDate', 'FromDate', 'Description', 'PostingDate', 'Status',
                 'AdminRemark', 'AdminRemarkDate', 'emp_emailid__emp_name', 'emp_emailid__emp_phone',
                 'emp_emailid__d_id__c_id', 'emp_emailid__emp_role'
             ).first()
+
+            logging.debug(f"Leave Details: {leave_dict}")
 
             if not leave_dict:
                 return JsonResponse({'error': 'Leave not found'}, status=404)
@@ -1460,9 +1469,12 @@ def LeaveDetails(request):
 
             return JsonResponse(leave_dict, safe=False)
         except Exception as e:
+            logging.error(f"Exception occurred: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     else:
+        logging.error(f"Invalid request method: {request.method}")
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 
 @csrf_exempt
@@ -1492,16 +1504,24 @@ def ManageLeaveType(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
-    elif request.method == 'POST':
+
+    elif request.method == 'PUT':
         try:
             data = json.loads(request.body)
-            leavetype = Leavetype.objects.create(
-                LeaveType=data['LeaveType'],
-                Description=data['Description'],
-                Limit=data['Limit'],
-                company_id=request.session.get('c_id')
-            )
-            return JsonResponse({'message': 'Leave Type created successfully'}, status=201)
+            leave_id = data.get('id')
+            
+            if not leave_id:
+                return JsonResponse({'error': 'Leave ID is required for updating'}, status=400)
+            
+            leavetype = Leavetype.objects.get(id=leave_id, company_id=request.session.get('c_id'))
+            leavetype.LeaveType = data.get('LeaveType', leavetype.LeaveType)
+            leavetype.Description = data.get('Description', leavetype.Description)
+            leavetype.Limit = data.get('Limit', leavetype.Limit)
+            leavetype.save()
+
+            return JsonResponse({'message': 'Leave Type updated successfully'}, status=200)
+        except Leavetype.DoesNotExist:
+            return JsonResponse({'error': 'Leave Type not found'}, status=404)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
@@ -1521,6 +1541,7 @@ def ManageLeaveType(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 
 @csrf_exempt
