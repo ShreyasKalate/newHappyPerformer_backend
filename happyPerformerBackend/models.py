@@ -818,7 +818,7 @@ class Tblleaves(models.Model):
     Description = models.CharField(max_length=500)
     PostingDate = models.DateTimeField(auto_now_add=True)
     AdminRemark = models.CharField(max_length=500, null=True, blank=True)
-    AdminRemarkDate = models.CharField(max_length=120, null=True, blank=True)
+    AdminRemarkDate = models.DateTimeField(null=True, blank=True)
     Status = models.IntegerField()
     IsRead = models.IntegerField()
     emp_emailid = models.ForeignKey('Employee', on_delete=models.CASCADE, db_column='emp_emailid')

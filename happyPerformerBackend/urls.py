@@ -40,7 +40,7 @@ urlpatterns = [
     path('UpdateDeleteEmployee/', views.UpdateDeleteEmployee, name='UpdateDeleteEmployee'),
     path('UpdateEmployeeDetails/', views.UpdateEmployeeDetails, name='UpdateEmployeeDetails'),
     path('LeaveDashboard/', views.LeaveDashboard, name='LeaveDashboard'),
-    path('LeaveDetails/', views.LeaveDetails, name='LeaveDetails'),
+    path('LeaveDetails/<int:id>/', views.LeaveDetails, name='LeaveDetails'),
     path('ManageLeaveType/', views.ManageLeaveType, name='ManageLeaveType'),
     path('EditLeaveType/<int:id>/', views.EditLeaveType, name='EditLeaveType'),
     path('Leaves/', views.Leaves, name='Leaves'),
@@ -116,6 +116,7 @@ urlpatterns = [
     path('send-otp/', views.send_otp, name='send_otp'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('resetpassword/', views.reset_password, name='reset_password'),
+    path('LeaveDetails/update_status/<int:leave_id>/', views.update_leave_status, name='update_leave_status'),
 ]
 
 if settings.DEBUG:

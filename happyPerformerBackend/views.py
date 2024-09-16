@@ -1425,8 +1425,8 @@ def JDForms(request):
             return JsonResponse({'error': str(e)}, status=500)
 
 
+
 @csrf_exempt
-@role_required(['HR', 'Manager', 'Super Manager'])
 def LeaveDashboard(request):
     company_id = request.session.get('c_id')
 
@@ -1434,6 +1434,7 @@ def LeaveDashboard(request):
         return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
     if request.method == 'GET':
+        # Fetch department, employee, and leave type counts
         departments = Department.objects.filter(c_id=company_id)
         dptcount = departments.count()
         employees = Employee.objects.filter(d_id__in=departments).values('emp_emailid')
@@ -1443,6 +1444,14 @@ def LeaveDashboard(request):
         emp_emails = [e['emp_emailid'] for e in employees]
         leaves_fetched = Tblleaves.objects.filter(emp_emailid__in=emp_emails).order_by('-id')
 
+        # Define status mapping from numbers to meaningful strings
+        status_mapping = {
+            0: 'Pending',
+            1: 'Approved',
+            2: 'Rejected',
+            # Add more status mappings as needed
+        }
+
         leaves_data = []
         for leave in leaves_fetched:
             leave_dict = {
@@ -1451,7 +1460,7 @@ def LeaveDashboard(request):
                 'emp_emailid': leave.emp_emailid.emp_emailid,
                 'LeaveType': leave.LeaveType.LeaveType,
                 'PostingDate': leave.PostingDate.strftime('%Y-%m-%d %H:%M:%S'),
-                'Status': leave.Status,
+                'Status': status_mapping.get(leave.Status, 'Unknown'),  # Map status number to string
             }
             leaves_data.append(leave_dict)
 
@@ -1466,19 +1475,61 @@ def LeaveDashboard(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
+#leaveaction
+
+@csrf_exempt
+def update_leave_status(request, leave_id):
+    # Check for session authentication
+    company_id = request.session.get('c_id')
+
+    if not company_id:
+        return JsonResponse({'error': 'Company ID not found in session'}, status=401)
+
+    if request.method == "POST":
+        try:
+            # Parse JSON body instead of using request.POST
+            data = json.loads(request.body)
+            
+            status = data.get('status')  # 'approved' or 'not-approved'
+            admin_remark = data.get('description')
+
+            # Fetch the leave record based on the ID passed from the frontend
+            leave = Tblleaves.objects.get(id=leave_id)
+
+            # Map the frontend status to backend integer values
+            if status == 'approved':
+                leave.Status = 1  # Approved
+            elif status == 'not-approved':
+                leave.Status = 2  # Rejected
+            else:
+                return JsonResponse({"error": "Invalid status"}, status=400)
+
+            # Update the remark and the date of action
+            leave.AdminRemark = admin_remark
+            leave.AdminRemarkDate = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            # Save changes to the database
+            leave.save()
+
+            return JsonResponse({"message": "Leave status updated successfully"}, status=200)
+
+        except Tblleaves.DoesNotExist:
+            return JsonResponse({"error": "Leave record not found"}, status=404)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
 @csrf_exempt
 @role_required(['HR', 'Manager', 'Super Manager'])
-def LeaveDetails(request):
+def LeaveDetails(request, id):  # Accept the 'id' parameter from the URL
     logging.debug(f"Received request method: {request.method}")
 
     if request.method == 'GET':
         try:
-            leave_id = request.GET.get('id')
-            logging.debug(f"Leave ID: {leave_id}")
-            if not leave_id:
+            logging.debug(f"Leave ID: {id}")
+            if not id:
                 return JsonResponse({'error': 'Leave ID is required'}, status=400)
 
             company_id = request.session.get('c_id')
@@ -1487,7 +1538,7 @@ def LeaveDetails(request):
             if not company_id:
                 return JsonResponse({'error': 'Company ID not found in session'}, status=401)
 
-            leave_dict = Tblleaves.objects.filter(id=leave_id).values(
+            leave_dict = Tblleaves.objects.filter(id=id).values(
                 'id', 'LeaveType__LeaveType', 'ToDate', 'FromDate', 'Description', 'PostingDate', 'Status',
                 'AdminRemark', 'AdminRemarkDate', 'emp_emailid__emp_name', 'emp_emailid__emp_phone',
                 'emp_emailid__d_id__c_id', 'emp_emailid__emp_role'
@@ -1502,6 +1553,10 @@ def LeaveDetails(request):
             if leave_dict['emp_emailid__d_id__c_id'] != user_company_id:
                 return JsonResponse({'error': 'You are not authorized to view this leave details'}, status=403)
 
+            # Mapping statuses: 0 = Pending, 1 = Approved, 2 = Rejected
+            status_mapping = {0: "Pending", 1: "Approved", 2: "Rejected"}
+            leave_dict['Status'] = status_mapping.get(leave_dict['Status'], "Unknown")
+
             leave_dict['emp_emailid__emp_name'] = leave_dict['emp_emailid__emp_name'].strip()
             leave_dict['PostingDate'] = leave_dict['PostingDate'].isoformat()
             leave_dict['AdminRemarkDate'] = leave_dict['AdminRemarkDate'].isoformat() if leave_dict['AdminRemarkDate'] else None
@@ -1513,6 +1568,8 @@ def LeaveDetails(request):
     else:
         logging.error(f"Invalid request method: {request.method}")
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
 
 
 
