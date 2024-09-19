@@ -4890,13 +4890,16 @@ def create_quiz(request):
             user = Employee.objects.get(emp_emailid=user_email)
 
             # Check if the user has the required role
-            if user.emp_role not in ['HR', 'Manager','Super Manager']:
+            if user.emp_role not in ['HR', 'Manager', 'Super Manager']:
                 return JsonResponse({'error': 'You do not have permission to create a quiz'}, status=403)
+
+            # Get the user's company through the department
+            company = user.d_id.c_id
 
             # Load the request body
             data = json.loads(request.body)
             quiz_title = data.get('quizTitle')
-            course = data.get('course')
+            course_title = data.get('course')
             total_questions = data.get('totalQuestions')
             marks_for_correct_answer = data.get('marksForCorrectAnswer')
             marks_for_wrong_answer = data.get('marksForWrongAnswer')
@@ -4904,17 +4907,25 @@ def create_quiz(request):
             passing_marks = data.get('passingMarks')
             time_limit = data.get('timeLimit')
 
+            # Check if the course exists and belongs to the user's company
+            try:
+                course = Courses.objects.get(course_title=course_title, c_id=company)
+            except Courses.DoesNotExist:
+                return JsonResponse({'error': 'Course does not exist in your company'}, status=404)
+
             # Create the quiz record
             quiz = Quiz(
+                eid=user.emp_emailid,  # Use the employee's email as eid
                 title=quiz_title,
-                course_title=course,
+                course_title=course_title,
                 total=total_questions,
                 correct=marks_for_correct_answer,
                 wrong=marks_for_wrong_answer,
                 passing=passing_marks,
                 total_marks=total_marks,
                 time=time_limit,
-                status='active',  # or any default status you want to set
+                date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Current date and time
+                status='active'  # or any default status you want to set
             )
             quiz.save()
 
@@ -4922,24 +4933,44 @@ def create_quiz(request):
 
         except Employee.DoesNotExist:
             return JsonResponse({'error': 'User does not exist'}, status=404)
-        
+
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON format'}, status=400)
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
-    
+
 
 @csrf_exempt
 def allquiz(request):
     if request.method == 'GET':
+        # Check if user is authenticated
         user_email = request.session.get('user_id')
         if not user_email:
             return JsonResponse({'error': 'User not authenticated'}, status=403)
-        
-        quizzes = Quiz.objects.all()
-        quiz_list = quizzes.values('id', 'title', 'course_title', 'total', 'total_marks', 'passing', 'time', 'status')
-        return JsonResponse(list(quiz_list), safe=False)
+
+        try:
+            # Retrieve the user from the Employee model
+            user = Employee.objects.get(emp_emailid=user_email)
+
+            # Get the user's company through the department
+            company = user.d_id.c_id
+
+            # Get the list of courses that belong to the user's company
+            company_courses = Courses.objects.filter(c_id=company).values_list('course_title', flat=True)
+
+            # Fetch only quizzes that are related to courses in the user's company
+            quizzes = Quiz.objects.filter(course_title__in=company_courses)
+            quiz_list = quizzes.values('id', 'title', 'course_title', 'total', 'total_marks', 'passing', 'time', 'status')
+
+            return JsonResponse(list(quiz_list), safe=False)
+
+        except Employee.DoesNotExist:
+            return JsonResponse({'error': 'User does not exist'}, status=404)
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
     
 
 
