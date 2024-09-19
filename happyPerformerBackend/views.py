@@ -4903,7 +4903,7 @@ def create_quiz(request):
             total_questions = data.get('totalQuestions')
             marks_for_correct_answer = data.get('marksForCorrectAnswer')
             marks_for_wrong_answer = data.get('marksForWrongAnswer')
-            total_marks = int(data.get('marksObtained', 0))
+            total_marks = int(data.get('total_marks', 0))  # Correct key used here
             passing_marks = data.get('passingMarks')
             time_limit = data.get('timeLimit')
 
@@ -4922,7 +4922,7 @@ def create_quiz(request):
                 correct=marks_for_correct_answer,
                 wrong=marks_for_wrong_answer,
                 passing=passing_marks,
-                total_marks=total_marks,
+                total_marks=total_marks,  # Correctly assign total_marks
                 time=time_limit,
                 date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Current date and time
                 status='active'  # or any default status you want to set
