@@ -4880,6 +4880,8 @@ def employee_view(request):
 @csrf_exempt
 def create_quiz(request):
     if request.method == 'POST':
+        logger.info('POST request received at /create-quiz/')
+
         # Check if user is authenticated
         user_email = request.session.get('user_id')
         if not user_email:
@@ -4887,6 +4889,7 @@ def create_quiz(request):
 
         try:
             # Retrieve the user from the Employee model
+            logger.info(f'Retrieving user with email: {user_email}')
             user = Employee.objects.get(emp_emailid=user_email)
 
             # Check if the user has the required role
@@ -4899,17 +4902,18 @@ def create_quiz(request):
             # Load the request body
             data = json.loads(request.body)
             quiz_title = data.get('quizTitle')
-            course_title = data.get('course')
+            course_id = data.get('course')  # Now expecting the course ID
             total_questions = data.get('totalQuestions')
-            marks_for_correct_answer = data.get('marksForCorrectAnswer')
-            marks_for_wrong_answer = data.get('marksForWrongAnswer')
-            total_marks = int(data.get('total_marks', 0))  # Correct key used here
+            marks_for_correct_answer = data.get('marksOnRightAnswer')  # Updated key
+            marks_for_wrong_answer = data.get('minusMarksOnWrongAnswer')  # Updated key
+            total_marks = int(data.get('total_marks', 0))
             passing_marks = data.get('passingMarks')
             time_limit = data.get('timeLimit')
 
             # Check if the course exists and belongs to the user's company
             try:
-                course = Courses.objects.get(course_title=course_title, c_id=company)
+                logger.info(f'Attempting to find course with ID: {course_id} for company: {company}')
+                course = Courses.objects.get(course_id=course_id, c_id=company)
             except Courses.DoesNotExist:
                 return JsonResponse({'error': 'Course does not exist in your company'}, status=404)
 
@@ -4917,15 +4921,15 @@ def create_quiz(request):
             quiz = Quiz(
                 eid=user.emp_emailid,  # Use the employee's email as eid
                 title=quiz_title,
-                course_title=course_title,
+                course_title=course.course_title,
                 total=total_questions,
                 correct=marks_for_correct_answer,
                 wrong=marks_for_wrong_answer,
                 passing=passing_marks,
-                total_marks=total_marks,  # Correctly assign total_marks
+                total_marks=total_marks,
                 time=time_limit,
                 date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Current date and time
-                status='active'  # or any default status you want to set
+                status='active'
             )
             quiz.save()
 
@@ -4939,6 +4943,7 @@ def create_quiz(request):
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
+
 
 
 @csrf_exempt

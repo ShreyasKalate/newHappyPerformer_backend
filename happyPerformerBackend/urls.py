@@ -108,6 +108,7 @@ urlpatterns = [
     path('socialget/', views.social_submit_feedback_get, name='social_submit_feedback_get'),
     path('socialpost/', views.social_submit_feedback_post, name='social_submit_feedback_post'),
     path('employee_view/', views.employee_view, name='employee_view'),
+    path('getcourses/', views.GetCourses, name='GetCourses'),
     path('create-quiz/', views.create_quiz, name='create_quiz'),
     path('allquiz/', views.allquiz, name='allquiz'),
     path('markattendance/', views.markattendance, name='markattendance'),
