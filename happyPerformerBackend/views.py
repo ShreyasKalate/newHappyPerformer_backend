@@ -5232,6 +5232,27 @@ def reset_password(request):
 
     return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
 
+def employee_details(request, emp_emailid):
+    if request.method == 'GET':
+        # Retrieve the employee based on their email ID
+        employee = get_object_or_404(Employee, emp_emailid=emp_emailid)
+        
+        # Serialize the data to send as JSON
+        employee_data = {
+            "emp_name": employee.emp_name,
+            "emp_emailid": employee.emp_emailid,
+            "emp_skills": employee.emp_skills,
+            "emp_role": employee.emp_role,
+            "emp_phone": employee.emp_phone,
+            "emp_profile": employee.emp_profile.url if employee.emp_profile else None,
+            "add_date": employee.add_date,
+            "pay_sts": employee.pay_sts,
+            "status": employee.Status,
+            "department_id": employee.d_id.d_id,  # ForeignKey field
+            "department_name": employee.d_id.d_name,  # Fetching department name
+        }
+
+        return JsonResponse({"employee": employee_data}, status=200)
 
 # @csrf_exempt
 # with hashing

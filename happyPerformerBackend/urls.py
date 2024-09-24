@@ -118,6 +118,7 @@ urlpatterns = [
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('resetpassword/', views.reset_password, name='reset_password'),
     path('LeaveDetails/update_status/<int:leave_id>/', views.update_leave_status, name='update_leave_status'),
+    path('EmployeeMaster/<str:emp_emailid>/', views.employee_details, name='employee-details'),
 ]
 
 if settings.DEBUG:
