@@ -33,7 +33,7 @@ from django.contrib.auth.hashers import make_password
 from django.utils.dateparse import parse_datetime
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-import os
+import os, traceback
 
 # decorators
 # def role_required(allowed_roles):
@@ -171,29 +171,30 @@ def Register(request):
             emp_name = data.get('empName')
             emp_email = data.get('empMail')
             emp_phone = data.get('empNum')
-            emp_pwd = data.get('emp_pwd', 'changeme')  # Default to 'changeme' if not provided
-            emp_role = data.get('empRole', 'Super Manager')  # Default to 'Super Manager' if not provided
+            emp_pwd = data.get('emp_pwd', 'changeme')
+            emp_role = data.get('empRole', 'Super Manager')
             emp_skills = data.get('empSkills')
+
+            # Capture the client's IP address
+            office_ip = request.META.get('REMOTE_ADDR')
 
             # Check if the company with the exact details exists
             try:
                 company = Company.objects.get(c_name=name, c_addr=addr, c_phone=phone)
                 created = False
             except Company.DoesNotExist:
-                company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone)
+                # Create a new company with the fetched IP address
+                company = Company.objects.create(c_name=name, c_addr=addr, c_phone=phone, office_ip=office_ip)
                 created = True
 
             # Only create departments if the company is newly created
             if created:
-                # Create departments and get the first department's ID
                 first_dept_id = None
                 for dept_name in dept_names:
-                    # Create department with the Company instance
                     new_dept = Department.objects.create(d_name=dept_name, c_id=company)
                     if first_dept_id is None:
                         first_dept_id = new_dept
             else:
-                # If the company already exists, use the existing first department ID
                 first_dept_id = Department.objects.filter(c_id=company).first()
                 
                 if not first_dept_id:
@@ -210,13 +211,14 @@ def Register(request):
                 d_id=first_dept_id
             )
 
-            return JsonResponse({'message': 'Company registration successful'}, status=201)
+            return JsonResponse({'message': 'Company registration successful', 'office_ip': office_ip}, status=201)
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
 
     else:
         return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
 
 
 
@@ -4977,63 +4979,71 @@ def allquiz(request):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
 
     
-
-
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 @csrf_exempt
 def markattendance(request):
     if request.method == 'POST':
-        # Check if user is authenticated
-        user_email = request.session.get('user_id')
-        if not user_email:
-            return JsonResponse({'error': 'User not authenticated'}, status=403)
-
         try:
-            # Retrieve the user from the Employee model
-            user = Employee.objects.get(emp_emailid=user_email)
-
-            # Load the request body
+            # Parse request body
             data = json.loads(request.body)
-            
-            # Print the data for debugging
-            print("Received data:", data)
-
-            email = data.get('email')
-            log_type = data.get('log_type')  # Make sure this matches the field name in the request
+            emp_email = data.get('email')
             latitude = data.get('latitude')
             longitude = data.get('longitude')
+            log_type = data.get('log_type')
+            employee_ip = request.META.get('REMOTE_ADDR')
 
-            # Validate the email
-            if email != user_email:
-                return JsonResponse({'error': 'Cannot mark attendance for a different user'}, status=403)
+            logging.debug(f"Employee IP: {employee_ip}")
 
-            if not email:
-                return JsonResponse({'error': 'Email ID is required'}, status=400)
-            if not log_type:
-                return JsonResponse({'error': 'Log type is required'}, status=400)
+            # Check for missing data
+            if not emp_email or not latitude or not longitude:
+                return JsonResponse({'error': 'Missing required fields'}, status=400)
 
+            # Fetch employee details
             try:
-                employee = Employee.objects.get(emp_emailid=email)
+                employee = Employee.objects.get(emp_emailid=emp_email)
+                logging.debug(f"Employee found: {employee}")
             except Employee.DoesNotExist:
-                return JsonResponse({'error': 'Employee does not exist'}, status=404)
+                logging.error(f"Employee with email {emp_email} not found")
+                return JsonResponse({'error': 'Employee not found'}, status=404)
 
-            # Create attendance record
+            # Get company office IP and check if it exists
+            company = employee.d_id.c_id
+            company_office_ip = company.office_ip
+            logging.debug(f"Company Office IP: {company_office_ip}")
+
+            if not company_office_ip:
+                logging.error(f"No office IP configured for company: {company}")
+                return JsonResponse({'error': 'Company network is not configured'}, status=500)
+
+            # Check if employee IP matches company office IP
+            if employee_ip != company_office_ip:
+                logging.error(f"Employee IP ({employee_ip}) does not match company IP ({company_office_ip})")
+                return JsonResponse({'error': 'Attendance can only be marked from the company network'}, status=403)
+
+            # Proceed with marking attendance
             Attendance.objects.create(
-                emp_emailid=employee,
-                log_type=log_type,
-                user_ip=request.META.get('REMOTE_ADDR'),
+                emp_emailid=employee,  # Use the correct field name
+                user_ip=employee_ip,  # Use the correct field name
                 latitude=latitude,
                 longitude=longitude,
-                datetime_log=timezone.now(),
+                datetime_log=timezone.now().isoformat(),  # Use current datetime in ISO format
                 date_updated=timezone.now()
             )
+            logging.debug("Attendance marked successfully")
+            return JsonResponse({'message': 'Attendance marked successfully'}, status=201)
 
-            return JsonResponse({'message': 'Attendance punched successfully'})
+        except Exception as e:
+            logging.error(f"Error marking attendance: {str(e)}")
+            logging.error(traceback.format_exc())  # Log the full traceback for debugging
+            return JsonResponse({'error': 'Internal Server Error'}, status=500)
 
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON format'}, status=400)
     else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
+        return JsonResponse({'error': 'Only POST requests are allowed'}, status=405)
+
+
+
 
 
 #Settings views

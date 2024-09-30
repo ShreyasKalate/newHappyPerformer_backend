@@ -14,6 +14,7 @@ class Company(models.Model):
     emp_limit = models.IntegerField(null=True, default=None)
     storage_limit = models.IntegerField(null=True, default=None)
     storage_used = models.IntegerField(null=True, default=None)
+    office_ip = models.GenericIPAddressField(null=True, blank=True)
 
 class Department(models.Model):
     d_id = models.BigAutoField(primary_key=True)
